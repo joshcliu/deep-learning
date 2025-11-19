@@ -1,0 +1,60 @@
+# Linear Probe Experiment Configuration
+# This config trains a linear probe on hidden states to predict model confidence
+
+experiment:
+  name: "llama-3.1-8b-linear-probe"
+  seed: 42
+  output_dir: "outputs"
+
+model:
+  name: "meta-llama/Llama-3.1-8B"
+  quantization: "8bit"  # Options: "4bit", "8bit", null (no quantization)
+  device: "auto"  # Options: "auto", "cuda", "cpu"
+  use_auth_token: null  # Set to your HF token for gated models
+
+data:
+  dataset: "mmlu"  # Options: "mmlu", "triviaqa", "gsm8k", "truthfulqa"
+  subset: null  # Dataset subset/split (dataset-specific)
+  split_ratio: [0.7, 0.15, 0.15]  # Train/val/test split
+  batch_size: 32
+  max_length: 512
+  num_samples: null  # Limit number of samples (null = use all)
+
+extraction:
+  layers: [8, 16, 24, 31]  # null = use optimal layers from registry
+  token_position: "last"  # Options: "last", "cls", "mean"
+  cache_dir: "cache/llama-3.1-8b"
+  use_cache: true
+
+probe:
+  type: "linear"  # Options: "linear", "mlp", "attention"
+  input_dim: 4096  # Auto-detected from model
+  hidden_dim: null  # Only for non-linear probes
+  dropout: 0.0
+  use_ensemble: false  # Ensemble across layers
+
+training:
+  epochs: 50
+  learning_rate: 1e-3
+  weight_decay: 1e-5
+  optimizer: "adam"  # Options: "adam", "adamw", "sgd"
+  scheduler: null  # Options: null, "cosine", "linear"
+  early_stopping_patience: 5
+  gradient_clip: 1.0
+
+evaluation:
+  metrics: ["ece", "brier", "auroc", "aupr", "accuracy"]
+  calibration_method: "temperature"  # Options: "temperature", "platt", null
+  num_bins: 10  # For ECE calculation
+  coverage_levels: [0.7, 0.8, 0.9, 0.95]  # For selective prediction
+  save_plots: true
+  plot_dir: "plots"
+
+logging:
+  use_wandb: false
+  wandb_project: "llm-confidence"
+  wandb_entity: null
+  wandb_tags: ["baseline", "linear-probe", "llama"]
+  log_interval: 10  # Log every N batches
+  save_checkpoints: true
+  checkpoint_interval: 5  # Save every N epochs

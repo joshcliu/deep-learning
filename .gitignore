@@ -205,3 +205,33 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Project-specific: LLM Confidence Probing
+# Cache directories
+cache/
+data/
+outputs/
+
+# Model files (too large for git)
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# HuggingFace cache
+huggingface/
+
+# Experiment tracking
+wandb/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
