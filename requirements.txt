@@ -1,0 +1,39 @@
+# Core deep learning and model libraries
+torch>=2.0.0
+transformers>=4.36.0
+accelerate>=0.25.0
+bitsandbytes>=0.41.0
+
+# Data handling
+datasets>=2.14.0
+numpy>=1.24.0
+pandas>=2.0.0
+h5py>=3.9.0
+
+# Machine learning utilities
+scikit-learn>=1.3.0
+scipy>=1.11.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.17.0
+
+# Experiment tracking and configuration
+wandb>=0.16.0
+hydra-core>=1.3.0
+omegaconf>=2.3.0
+
+# Progress and logging
+tqdm>=4.65.0
+loguru>=0.7.0
+
+# Optimization
+optuna>=3.3.0
+
+# Development tools (optional but recommended)
+jupyter>=1.0.0
+ipywidgets>=8.0.0
+black>=23.0.0
+pytest>=7.4.0
+mypy>=1.5.0
