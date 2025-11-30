@@ -209,7 +209,12 @@ __marimo__/
 # Project-specific: LLM Confidence Probing
 # Cache directories
 cache/
-data/
+
+# Check to make sure all raw data is saved in these folders
+data/raw/
+data/processed/
+data/cache/
+
 outputs/
 
 # Model files (too large for git)
