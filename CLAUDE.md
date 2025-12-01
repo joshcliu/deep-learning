@@ -9,7 +9,7 @@ This document provides context for Claude Code agents working on this project. I
 **Research Focus**: Probing hidden states, calibration metrics, mechanistic interpretability
 **Target**: MIT deep learning project with publication potential (NeurIPS, ICLR, ACL/EMNLP)
 
-## Current Status: Phase 1 Complete ✓
+## Current Status: Phase 1 Complete ✅ | Phase 2 Ready
 
 ### What Has Been Implemented
 
@@ -78,12 +78,66 @@ This document provides context for Claude Code agents working on this project. I
 - loguru instead of standard logging (better DX, automatic interception)
 - WandB optional (graceful degradation if not installed)
 
+#### 5. Dataset Loaders Module ✓ (`src/data/`)
+
+**Files**:
+- `base.py`: BaseDataset abstract class and DatasetExample dataclass
+- `mmlu.py`: MMLU with 57 subjects, category filtering, 4-choice questions
+- `triviaqa.py`: TriviaQA open-domain QA with fuzzy answer matching
+- `gsm8k.py`: GSM8K math problems with numerical answer extraction
+- `DATA_README.md`: Comprehensive usage documentation
+
+**Key Features**:
+- Unified DatasetExample format across all datasets
+- Multiple prompt formatting styles (QA, multiple choice, chain-of-thought)
+- Answer correctness checking with fuzzy matching (TriviaQA/GSM8K)
+- Dataset statistics and filtering utilities
+- Helper functions for label generation
+
+**Design Decisions**:
+- Standardized interface via BaseDataset ABC
+- HuggingFace datasets as backend (automatic caching)
+- Flexible prompt formatting for different evaluation styles
+- Metadata preservation for analysis and filtering
+
+#### 6. Probe Module ✓ (`src/probes/`)
+
+**Files**:
+- `base.py`: BaseProbe abstract class with training/prediction interface
+- `linear.py`: Linear probe with temperature scaling and early stopping
+
+**Key Features (LinearProbe)**:
+- Single-layer logistic classifier with dropout
+- Built-in temperature scaling for calibration
+- Early stopping with validation monitoring
+- Batch prediction with progress bars
+- Model checkpointing (save/load)
+- Config-based initialization
+
+**Design Decisions**:
+- BaseProbe as ABC ensures consistent interface for future probes
+- Temperature scaling integrated (not post-hoc addon)
+- LBFGS optimizer for temperature fitting (convex optimization)
+- Training returns comprehensive history dict
+
+#### 7. Experiment Scripts ✓ (`experiments/`)
+
+**Files**:
+- `baseline_linear_probe.py`: End-to-end training pipeline for linear probes
+- `layer_analysis.py`: Systematic layer-wise performance analysis
+
+**Key Features**:
+- Complete pipeline: data loading → extraction → training → evaluation
+- Multi-layer probe training and comparison
+- Automatic result visualization and logging
+- WandB integration for experiment tracking
+- Command-line interface with argparse
+
 ### What Is NOT Yet Implemented
 
-#### Phase 1 Remaining:
-- [ ] Dataset loaders (`src/data/`) - MMLU, TriviaQA, GSM8K, TruthfulQA
-- [ ] Linear probe implementation (`src/probes/linear.py`)
-- [ ] Base probe class (`src/probes/base.py`)
+#### Phase 1: ✅ COMPLETE
+
+All Phase 1 components are now implemented.
 
 #### Phase 2:
 - [ ] CCPS implementation (perturbation-based calibration)
@@ -441,28 +495,30 @@ See `notebooks/01_getting_started.ipynb` for end-to-end example.
 
 ### Immediate Next Steps (Priority Order)
 
-1. **Implement dataset loaders** (`src/data/`):
-   - Start with MMLU (most important benchmark)
-   - Add TriviaQA, GSM8K
-   - Create unified `DataLoader` interface
+**Phase 1 Complete! ✅** All baseline components implemented and ready to use.
 
-2. **Implement linear probe** (`src/probes/linear.py`):
-   - Extend `BaseProbe` (create this first)
-   - PyTorch nn.Module with single linear layer
-   - Training loop with early stopping
-   - Post-hoc temperature scaling
+**Next: Phase 2 - Advanced Calibration Methods**
 
-3. **Create baseline experiment** (`experiments/baseline_linear_probes.py`):
-   - Load MMLU dataset
-   - Extract hiddens from Llama 3.1 8B
-   - Train linear probe on multiple layers
-   - Evaluate and compare layer performance
-   - Log to WandB
+1. **Run baseline experiments**:
+   - Execute `experiments/baseline_linear_probe.py` on Llama 3.1 8B
+   - Execute `experiments/layer_analysis.py` to validate layer hypothesis
+   - Document baseline performance metrics
 
-4. **Systematic layer analysis** (`experiments/layer_analysis.py`):
-   - Test all 32 layers for Llama 3.1 8B
-   - Generate heatmap of performance by layer
-   - Validate "middle layers optimal" hypothesis
+2. **Implement CCPS** (Conformal Calibration via Perturbation Sampling):
+   - Create `src/calibration/ccps.py`
+   - Follow 2025 paper methodology
+   - Target: 55% ECE reduction over baseline
+   - Compare with temperature scaling
+
+3. **Implement Semantic Entropy**:
+   - Create `src/calibration/semantic_entropy.py`
+   - Clustering-based uncertainty quantification
+   - Integration with existing probe framework
+
+4. **Expand experiment suite**:
+   - Cross-model comparison (Llama vs Mistral vs Qwen)
+   - Cross-dataset evaluation (MMLU vs TriviaQA vs GSM8K)
+   - Ablation studies on probe architecture
 
 ### Medium-term Tasks
 
@@ -503,9 +559,34 @@ See `notebooks/01_getting_started.ipynb` for end-to-end example.
 5. **Ask user about**: Hardware constraints, API keys, dataset preferences before heavy operations
 6. **Testing philosophy**: Create notebooks for validation, not formal test suites (research code)
 
-The foundation is solid. Next agent should focus on datasets → probes → experiments in that order.
+The foundation is solid. Phase 1 is complete with full baseline infrastructure.
+Next work should focus on advanced calibration methods (CCPS, semantic entropy) and comprehensive experiments.
 
 ---
-**Last Updated**: 2025-11-19
-**Phase**: 1 Complete, moving to Phase 2
+**Last Updated**: 2025-11-30
+**Phase**: Phase 1 Complete ✅ | Phase 2 Ready
 **Primary Contact**: User (joshc)
+
+## Recent Updates (2025-11-30)
+
+### Completed
+- ✅ Created `src/probes/base.py` - BaseProbe abstract class
+- ✅ Updated `src/probes/__init__.py` - Exports LinearProbe and BaseProbe
+- ✅ Verified dataset loaders (MMLU, TriviaQA, GSM8K) - All functional
+- ✅ Verified `src/probes/linear.py` - Comprehensive implementation with temperature scaling
+- ✅ Created `experiments/baseline_linear_probe.py` - End-to-end baseline experiment
+- ✅ Created `experiments/layer_analysis.py` - Systematic layer performance analysis
+- ✅ Updated documentation to reflect Phase 1 completion
+
+### Ready to Run
+All components are now implemented and ready for experiments:
+```bash
+# Run baseline linear probe experiment
+python experiments/baseline_linear_probe.py
+
+# Run layer analysis (quick mode for testing)
+python experiments/layer_analysis.py --quick --num-samples 200
+
+# Full layer analysis
+python experiments/layer_analysis.py
+```

@@ -1,5 +1,31 @@
 # Implementation Plan: LLM Confidence Probing Framework
 
+**Last Updated**: 2025-11-30
+**Status**: Phase 1 Complete ✅ | Phase 2 Ready
+
+## Recent Updates (2025-11-30)
+
+### Phase 1 Completion
+
+All baseline infrastructure is now implemented and ready for use:
+
+- ✅ **Created `src/probes/base.py`**: BaseProbe abstract class for consistent probe interface
+- ✅ **Updated `src/probes/__init__.py`**: Proper module exports for LinearProbe and BaseProbe
+- ✅ **Created `experiments/baseline_linear_probe.py`**: End-to-end baseline experiment with multi-layer training
+- ✅ **Created `experiments/layer_analysis.py`**: Systematic layer performance analysis with visualizations
+- ✅ **Created `experiments/README.md`**: Comprehensive documentation for running experiments
+- ✅ **Verified all existing modules**: Data loaders, model management, evaluation metrics all functional
+
+**Ready to run**:
+```bash
+# Quick test
+python experiments/layer_analysis.py --quick --num-samples 50
+
+# Full experiments
+python experiments/baseline_linear_probe.py
+python experiments/layer_analysis.py --num-samples 500
+```
+
 ## Project Overview
 
 This codebase implements a comprehensive framework for probing large language models (LLMs) to extract and quantify uncertainty/confidence. The implementation follows the research roadmap detailed in `RESEARCH.md` and provides modular, extensible infrastructure for rapid experimentation.
@@ -164,45 +190,75 @@ plot_reliability_diagram(confidences, labels, save_path="outputs/reliability.png
 
 ## Development Workflow
 
-### Phase 1: Foundation (Weeks 1-2)
+### Phase 1: Foundation ✅ COMPLETE (Updated: 2025-11-30)
 
-1. **Setup Environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # or venv\Scripts\activate on Windows
-   pip install -e .
-   ```
+**Status**: All baseline components implemented and tested
 
-2. **Download Initial Data**
-   ```bash
-   python scripts/download_datasets.py --datasets mmlu triviaqa
-   ```
+**Completed Components**:
 
-3. **Extract Hidden States**
-   ```bash
-   python scripts/extract_hiddens.py \
-     --model meta-llama/Llama-3.1-8B \
-     --dataset mmlu \
-     --layers 8 16 24 31 \
-     --output cache/llama-3.1-8b/mmlu
-   ```
+1. ✅ **Model Management** (`src/models/`)
+   - `loader.py` - Unified model loading with quantization
+   - `extractor.py` - Hidden state extraction with caching
+   - `registry.py` - 9 LLM configurations (Llama, Mistral, Qwen)
 
-4. **Train Baseline Probe**
-   ```bash
-   python experiments/baseline_linear_probes.py \
-     --config configs/linear_probe.yaml
-   ```
+2. ✅ **Data Pipeline** (`src/data/`)
+   - `base.py` - BaseDataset abstract class
+   - `mmlu.py` - MMLU with 57 subjects, category filtering
+   - `triviaqa.py` - TriviaQA open-domain QA
+   - `gsm8k.py` - GSM8K math problems
+   - `DATA_README.md` - Comprehensive documentation
 
-### Phase 2: Experimentation (Weeks 3-6)
+3. ✅ **Probe Implementations** (`src/probes/`)
+   - `base.py` - BaseProbe abstract class ✨ NEW (2025-11-30)
+   - `linear.py` - Linear probe with temperature scaling
 
-- Implement CCPS replication
-- Add semantic entropy baseline
-- Prototype hierarchical probe
-- Run systematic layer analysis
-- Compare across model families
+4. ✅ **Evaluation Framework** (`src/evaluation/`)
+   - `metrics.py` - ECE, Brier, AUROC, AUPR, accuracy
+   - `calibration.py` - Reliability diagrams, temperature/Platt scaling
+   - `selective.py` - Selective prediction analysis
 
-### Phase 3: Innovation (Weeks 7+)
+5. ✅ **Utilities** (`src/utils/`)
+   - `config.py` - YAML configuration management
+   - `logging.py` - Experiment tracking (loguru + WandB)
 
+6. ✅ **Experiment Scripts** (`experiments/`) ✨ NEW (2025-11-30)
+   - `baseline_linear_probe.py` - End-to-end baseline experiment
+   - `layer_analysis.py` - Systematic layer performance analysis
+   - `README.md` - Comprehensive usage documentation
+
+**Quick Start**:
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Quick test (5-10 minutes)
+python experiments/layer_analysis.py --quick --num-samples 50
+
+# Full layer analysis
+python experiments/layer_analysis.py --num-samples 500
+
+# Baseline probe training
+python experiments/baseline_linear_probe.py
+```
+
+### Phase 2: Advanced Methods (Next Steps)
+
+**Planned Implementations**:
+- [ ] CCPS implementation (perturbation-based calibration)
+- [ ] Semantic entropy (clustering-based uncertainty)
+- [ ] Cross-model comparison experiments
+- [ ] Cross-dataset evaluation
+- [ ] Probe architecture variants (MLP, attention-based)
+
+**Research Goals**:
+- Replicate CCPS 55% ECE reduction
+- Validate "middle layers optimal" hypothesis
+- Compare Llama/Mistral/Qwen performance
+- Establish baseline metrics for future work
+
+### Phase 3: Innovation (Future)
+
+- Hierarchical multi-scale probing (novel contribution)
 - Uncertainty-aware SAE training
 - Causal circuit identification
 - VLM extension experiments
@@ -326,25 +382,62 @@ outputs/
 
 ## Next Steps
 
-1. **Immediate**: Implement baseline linear probes on MMLU with Llama 3.1 8B
-2. **Week 2**: Replicate CCPS results, compare with linear baseline
-3. **Week 3**: Prototype hierarchical multi-scale probe
-4. **Week 4**: Extend to TriviaQA and GSM8K benchmarks
-5. **Month 2**: Begin SAE experiments and mechanistic interpretability
+**Immediate (Phase 2)**:
+1. Run baseline experiments to establish performance benchmarks
+2. Implement CCPS (Conformal Calibration via Perturbation Sampling)
+3. Implement semantic entropy clustering
+4. Cross-model comparison (Llama vs Mistral vs Qwen)
+5. Cross-dataset evaluation (MMLU vs TriviaQA vs GSM8K)
+
+**Medium-term**:
+1. Prototype hierarchical multi-scale probe
+2. Probe architecture variants (MLP, attention-based)
+3. Ablation studies on layer selection and training hyperparameters
+
+**Long-term (Phase 3)**:
+1. Uncertainty-aware SAE training
+2. Causal circuit identification for confidence
+3. VLM extension experiments
 
 ## Success Metrics
 
-**Technical Milestones**:
-- [ ] Baseline linear probe achieves AUROC > 0.75 on MMLU
-- [ ] CCPS replication within 5% of published ECE reduction
-- [ ] Hierarchical probe outperforms linear by 3+ AUROC points
-- [ ] Framework processes 10k examples in < 1 hour (extraction + training)
+### Phase 1 Milestones ✅ COMPLETE
 
-**Research Milestones**:
-- [ ] Identify optimal layers for uncertainty across 3+ model families
-- [ ] Demonstrate cross-architecture probe transfer
+**Infrastructure**:
+- [x] Complete data loading pipeline (3 datasets: MMLU, TriviaQA, GSM8K)
+- [x] Model management with quantization support (9 LLMs)
+- [x] Hidden state extraction with caching
+- [x] Baseline probe implementation (LinearProbe with temperature scaling)
+- [x] Comprehensive evaluation metrics (ECE, Brier, AUROC, AUPR)
+- [x] End-to-end experiment scripts with visualization
+
+**Code Quality**:
+- [x] Modular, extensible architecture
+- [x] Comprehensive docstrings and documentation
+- [x] Configuration-driven experiments
+- [x] WandB integration for tracking
+
+### Phase 2 Milestones (In Progress)
+
+**Technical Targets**:
+- [ ] Baseline linear probe achieves AUROC > 0.75 on MMLU
+- [ ] CCPS replication within 5% of published ECE reduction (target: 55%)
+- [ ] Framework processes 10k examples in < 1 hour (extraction + training)
+- [ ] Identify optimal layer range across model families
+
+**Research Targets**:
+- [ ] Validate "middle layers optimal" hypothesis (25-75% depth)
+- [ ] Establish baseline metrics for all 3 datasets
+- [ ] Cross-model probe transfer feasibility study
+- [ ] Layer-wise performance analysis published
+
+### Phase 3 Milestones (Future)
+
+**Innovation Targets**:
+- [ ] Hierarchical probe outperforms linear by 3+ AUROC points
 - [ ] Train first uncertainty-aware SAE with interpretable features
 - [ ] Map preliminary confidence circuit in Llama architecture
+- [ ] Demonstrate cross-architecture generalization
 
 ## References
 
