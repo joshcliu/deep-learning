@@ -5,12 +5,13 @@ that operates at multiple granularities: token, span, semantic, and global level
 Each level captures different aspects of model uncertainty.
 """
 
-from typing import Dict, Any, Optional, List, Tuple
-import numpy as np
+from __future__ import annotations
+
+from typing import Any, Dict, Optional, Union
+
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
-from loguru import logger
 
 from .base import BaseProbe
 
@@ -186,10 +187,13 @@ class HierarchicalProbe(BaseProbe):
 
     Args:
         input_dim: Dimension of input hidden states
-        hidden_dim: Dimension of hidden layers
-        num_layers: Number of transformer layers to use (for multi-layer input)
-        use_layer_fusion: Whether to fuse information from multiple layers
-        device: Device to run computations on
+        hidden_dim: Dimension of hidden layers (default: 512)
+        num_layers: Number of transformer layers to use for multi-layer input (default: 3)
+        use_layer_fusion: Whether to fuse information from multiple layers (default: True)
+        device: Device to run computations on. If None, uses CUDA if available.
+
+    Raises:
+        ValueError: If input_dim <= 0 or hidden_dim <= 0.
 
     Example:
         >>> probe = HierarchicalProbe(input_dim=4096, hidden_dim=512)
@@ -204,9 +208,21 @@ class HierarchicalProbe(BaseProbe):
         hidden_dim: int = 512,
         num_layers: int = 3,
         use_layer_fusion: bool = True,
-        device: str = "cuda",
-    ):
-        super().__init__(input_dim, device)
+        device: Optional[Union[str, torch.device]] = None,
+    ) -> None:
+        super().__init__()
+
+        # Input validation
+        if input_dim <= 0:
+            raise ValueError(f"input_dim must be positive, got {input_dim}")
+        if hidden_dim <= 0:
+            raise ValueError(f"hidden_dim must be positive, got {hidden_dim}")
+
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        self.device: torch.device = torch.device(device)
+        self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.use_layer_fusion = use_layer_fusion
@@ -246,6 +262,29 @@ class HierarchicalProbe(BaseProbe):
         self.token_pooling = AttentionPooling(effective_dim, 256)
 
         self.to(self.device)
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any], input_dim: int) -> "HierarchicalProbe":
+        """Create probe from configuration dictionary.
+
+        Args:
+            config: Configuration dictionary with probe hyperparameters.
+            input_dim: Dimensionality of the hidden state features.
+
+        Returns:
+            Initialized HierarchicalProbe instance.
+
+        Example:
+            >>> config = {"hidden_dim": 512, "num_layers": 3, "use_layer_fusion": True}
+            >>> probe = HierarchicalProbe.from_config(config, input_dim=4096)
+        """
+        return cls(
+            input_dim=input_dim,
+            hidden_dim=config.get("hidden_dim", 512),
+            num_layers=config.get("num_layers", 3),
+            use_layer_fusion=config.get("use_layer_fusion", True),
+            device=config.get("device", None),
+        )
 
     def _process_layers(self, hiddens: torch.Tensor) -> torch.Tensor:
         """Fuse information from multiple layers if using layer fusion.
@@ -347,7 +386,13 @@ class HierarchicalProbe(BaseProbe):
             hiddens: Hidden states (batch_size, seq_len, input_dim)
 
         Returns:
-            Dictionary with confidence scores at each level
+            Dictionary with confidence scores at each level:
+            {
+                "token": (batch_size, seq_len, 1),
+                "span": (batch_size, 1),
+                "semantic": (batch_size, 1),
+                "global": (batch_size, 1),
+            }
         """
         # Handle both sequence and single-vector inputs
         if hiddens.dim() == 2:
@@ -384,3 +429,27 @@ class HierarchicalProbe(BaseProbe):
             "semantic": semantic_confidence,  # (batch_size, 1)
             "global": global_confidence,  # (batch_size, 1)
         }
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get probe architecture information.
+
+        Returns:
+            Dictionary containing:
+                - input_dim: Input feature dimension
+                - hidden_dim: Hidden layer dimension
+                - num_layers: Number of layers for fusion
+                - use_layer_fusion: Whether layer fusion is enabled
+                - device: Device the probe is on
+                - num_parameters: Total number of trainable parameters
+        """
+        return {
+            "input_dim": self.input_dim,
+            "hidden_dim": self.hidden_dim,
+            "num_layers": self.num_layers,
+            "use_layer_fusion": self.use_layer_fusion,
+            "device": str(self.device),
+            "num_parameters": sum(p.numel() for p in self.parameters()),
+        }
+
+
+__all__ = ["HierarchicalProbe"]

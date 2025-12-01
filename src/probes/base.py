@@ -1,205 +1,296 @@
-"""Base class for uncertainty probes."""
+"""Base class for uncertainty probes.
+
+This module defines the abstract interface that all probe implementations
+should follow. It provides common functionality for training, prediction,
+and model persistence.
+"""
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
-from loguru import logger
+from tqdm import tqdm
+
+
+ArrayLike = Union[np.ndarray, torch.Tensor]
 
 
 class BaseProbe(ABC, nn.Module):
     """Abstract base class for uncertainty quantification probes.
 
     All probe implementations should inherit from this class and implement
-    the abstract methods.
+    the abstract forward() method. The base class provides common training,
+    prediction, and persistence utilities.
 
-    Args:
-        input_dim: Dimension of input hidden states
-        device: Device to run computations on ('cuda' or 'cpu')
+    Subclasses should define their own __init__() method to set up the
+    architecture, device, and hyperparameters.
+
+    Example:
+        >>> class MyProbe(BaseProbe):
+        ...     def __init__(self, input_dim: int):
+        ...         super().__init__()
+        ...         self.linear = nn.Linear(input_dim, 1)
+        ...
+        ...     def forward(self, hiddens: torch.Tensor) -> torch.Tensor:
+        ...         return torch.sigmoid(self.linear(hiddens))
     """
 
-    def __init__(self, input_dim: int, device: str = "cuda"):
+    def __init__(self) -> None:
+        """Initialize the base probe.
+
+        Note: Subclasses should call super().__init__() and then set up
+        their own architecture, device, and any other attributes.
+        """
         super().__init__()
-        self.input_dim = input_dim
-        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
-        self.is_fitted = False
 
     @abstractmethod
     def forward(self, hiddens: torch.Tensor) -> torch.Tensor:
         """Forward pass returning confidence scores.
 
         Args:
-            hiddens: Input hidden states of shape (batch_size, input_dim)
+            hiddens: Input hidden states. Shape depends on the probe type:
+                - For simple probes: (batch_size, input_dim)
+                - For hierarchical probes: (batch_size, seq_len, input_dim)
 
         Returns:
-            Confidence scores of shape (batch_size,) or (batch_size, 1)
+            Confidence scores. Shape depends on the probe type:
+                - Typically (batch_size, 1) or (batch_size,)
         """
-        pass
+        raise NotImplementedError("Subclasses must implement forward()")
+
+    @torch.no_grad()
+    def predict(self, X: ArrayLike, batch_size: int = 512) -> np.ndarray:
+        """Predict confidence scores for a set of hidden states.
+
+        This is a convenience method that wraps forward() with batching
+        and numpy conversion. Subclasses can override this if they need
+        custom prediction logic.
+
+        Args:
+            X: Hidden states as a NumPy array or torch tensor.
+               Shape depends on probe type (see forward()).
+            batch_size: Batch size used during prediction.
+
+        Returns:
+            NumPy array of confidence scores, typically shape (num_examples,).
+        """
+        self.eval()
+
+        # Convert to tensor and get device
+        X_tensor = self._to_tensor(X)
+        device = next(self.parameters()).device
+        X_tensor = X_tensor.to(device)
+
+        dataset = TensorDataset(X_tensor)
+        dataloader = DataLoader(dataset, batch_size=batch_size)
+
+        all_probs: List[np.ndarray] = []
+        for (batch_x,) in dataloader:
+            probs = self.forward(batch_x)  # Shape varies by probe
+            # Squeeze to 1D if needed
+            if probs.dim() > 1:
+                probs = probs.squeeze(-1)
+            all_probs.append(probs.cpu().numpy())
+
+        return np.concatenate(all_probs, axis=0)
 
     def fit(
         self,
-        X_train: np.ndarray,
-        y_train: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
-        epochs: int = 100,
-        batch_size: int = 32,
-        lr: float = 1e-3,
-        weight_decay: float = 1e-4,
-        early_stopping_patience: int = 10,
+        X_train: ArrayLike,
+        y_train: ArrayLike,
+        X_val: Optional[ArrayLike] = None,
+        y_val: Optional[ArrayLike] = None,
+        batch_size: int = 128,
+        num_epochs: int = 50,
+        patience: int = 5,
+        lr: Optional[float] = None,
+        weight_decay: Optional[float] = None,
         verbose: bool = True,
     ) -> Dict[str, Any]:
-        """Train the probe on labeled data.
+        """Train the probe on precomputed hidden states.
+
+        This provides a default training loop with early stopping. Subclasses
+        can override this if they need custom training logic, but should
+        maintain a similar interface.
 
         Args:
-            X_train: Training hidden states (n_samples, input_dim)
-            y_train: Training labels (n_samples,) - binary correctness (0/1)
-            X_val: Validation hidden states
-            y_val: Validation labels
-            epochs: Maximum number of training epochs
-            batch_size: Batch size for training
-            lr: Learning rate
-            weight_decay: L2 regularization strength
-            early_stopping_patience: Stop if validation loss doesn't improve for N epochs
-            verbose: Whether to print training progress
+            X_train: Training hidden states.
+            y_train: Training labels (binary values {0, 1}).
+            X_val: Optional validation hidden states.
+            y_val: Optional validation labels.
+            batch_size: Batch size for training.
+            num_epochs: Maximum number of epochs.
+            patience: Early stopping patience (epochs without improvement).
+            lr: Learning rate. If None, uses 1e-3.
+            weight_decay: L2 weight decay. If None, uses 0.0.
+            verbose: Whether to print training progress.
 
         Returns:
-            Dictionary with training history
+            Dictionary with training/validation loss histories and metadata:
+            {
+                "train_loss": List[float],
+                "val_loss": List[float],  # Empty if X_val is None
+                "best_epoch": int,  # Epoch with best validation loss
+                "converged": bool,  # False if early stopped
+            }
         """
-        self.to(self.device)
-        self.train()
+        if lr is None:
+            lr = 1e-3
+        if weight_decay is None:
+            weight_decay = 0.0
 
-        # Convert to tensors
-        X_train_tensor = torch.FloatTensor(X_train).to(self.device)
-        y_train_tensor = torch.FloatTensor(y_train).to(self.device)
+        device = next(self.parameters()).device
 
-        # Create data loader
+        X_train_tensor = self._to_tensor(X_train).to(device)
+        y_train_tensor = self._to_tensor(y_train).float().to(device)
+        y_train_tensor = y_train_tensor.view(-1, 1)
+
         train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
-        train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True, drop_last=False
-        )
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-        # Setup optimizer and loss
-        optimizer = torch.optim.AdamW(
+        if X_val is not None and y_val is not None:
+            X_val_tensor = self._to_tensor(X_val).to(device)
+            y_val_tensor = self._to_tensor(y_val).float().to(device)
+            y_val_tensor = y_val_tensor.view(-1, 1)
+        else:
+            X_val_tensor = None
+            y_val_tensor = None
+
+        criterion = nn.BCEWithLogitsLoss()
+        optimizer = torch.optim.Adam(
             self.parameters(), lr=lr, weight_decay=weight_decay
         )
-        criterion = nn.BCELoss()
 
-        # Training history
-        history = {
-            "train_loss": [],
-            "val_loss": [],
-            "best_epoch": 0,
-            "best_val_loss": float("inf"),
-        }
+        history: Dict[str, List[float]] = {"train_loss": [], "val_loss": []}
+        best_val_loss: float = float("inf")
+        best_epoch: int = 0
+        best_state: Optional[Dict[str, Any]] = None
+        epochs_without_improvement = 0
+        early_stopped = False
 
-        # Validation setup
-        has_validation = X_val is not None and y_val is not None
-        if has_validation:
-            X_val_tensor = torch.FloatTensor(X_val).to(self.device)
-            y_val_tensor = torch.FloatTensor(y_val).to(self.device)
+        epoch_iter = tqdm(
+            range(num_epochs),
+            desc="Training probe",
+            disable=not verbose,
+            leave=True
+        )
 
-        # Early stopping
-        best_state = None
-        patience_counter = 0
+        for epoch in epoch_iter:
+            self.train()
+            epoch_train_losses: List[float] = []
 
-        # Training loop
-        for epoch in range(epochs):
-            # Training
-            train_loss = 0.0
-            for batch_X, batch_y in train_loader:
+            for batch_x, batch_y in train_loader:
                 optimizer.zero_grad()
-                outputs = self.forward(batch_X).squeeze()
-                loss = criterion(outputs, batch_y)
+                # Get raw outputs (may be logits or probabilities depending on probe)
+                outputs = self.forward(batch_x)
+                if outputs.dim() > 1:
+                    outputs = outputs.squeeze(-1)
+
+                # Note: Using BCELoss here assumes forward() returns probabilities.
+                # If your probe returns logits, you should use BCEWithLogitsLoss
+                # or override this method.
+                # For compatibility with sigmoid outputs:
+                loss = nn.functional.binary_cross_entropy(
+                    outputs.view(-1, 1), batch_y, reduction='mean'
+                )
+
                 loss.backward()
                 optimizer.step()
-                train_loss += loss.item() * len(batch_X)
 
-            train_loss /= len(X_train)
-            history["train_loss"].append(train_loss)
+                epoch_train_losses.append(loss.item())
 
-            # Validation
-            if has_validation:
-                self.eval()
-                with torch.no_grad():
-                    val_outputs = self.forward(X_val_tensor).squeeze()
-                    val_loss = criterion(val_outputs, y_val_tensor).item()
+            mean_train_loss = float(np.mean(epoch_train_losses))
+            history["train_loss"].append(mean_train_loss)
+
+            if X_val_tensor is not None and y_val_tensor is not None:
+                val_loss = self._compute_validation_loss(
+                    X_val_tensor, y_val_tensor, batch_size
+                )
                 history["val_loss"].append(val_loss)
-                self.train()
 
-                # Early stopping check
-                if val_loss < history["best_val_loss"]:
-                    history["best_val_loss"] = val_loss
-                    history["best_epoch"] = epoch
-                    best_state = self.state_dict().copy()
-                    patience_counter = 0
+                # Update progress bar
+                epoch_iter.set_postfix({
+                    "train_loss": f"{mean_train_loss:.4f}",
+                    "val_loss": f"{val_loss:.4f}"
+                })
+
+                if val_loss < best_val_loss - 1e-6:
+                    best_val_loss = val_loss
+                    best_epoch = epoch
+                    best_state = self.state_dict()
+                    epochs_without_improvement = 0
                 else:
-                    patience_counter += 1
-
-                if patience_counter >= early_stopping_patience:
-                    if verbose:
-                        logger.info(
-                            f"Early stopping at epoch {epoch}. "
-                            f"Best epoch: {history['best_epoch']}"
-                        )
-                    break
-
-                if verbose and (epoch + 1) % 10 == 0:
-                    logger.info(
-                        f"Epoch {epoch+1}/{epochs} - "
-                        f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
-                    )
+                    epochs_without_improvement += 1
+                    if epochs_without_improvement >= patience:
+                        if verbose:
+                            print(
+                                f"\nEarly stopping: validation loss did not improve "
+                                f"for {patience} epochs."
+                            )
+                        early_stopped = True
+                        break
             else:
-                if verbose and (epoch + 1) % 10 == 0:
-                    logger.info(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f}")
+                # Update progress bar (training loss only)
+                epoch_iter.set_postfix({"train_loss": f"{mean_train_loss:.4f}"})
 
-        # Restore best model if using validation
-        if has_validation and best_state is not None:
+        # Restore best model parameters if validation was used
+        if best_state is not None:
             self.load_state_dict(best_state)
 
-        self.is_fitted = True
-        self.eval()
+        # Return comprehensive history
+        return {
+            "train_loss": history["train_loss"],
+            "val_loss": history["val_loss"],
+            "best_epoch": best_epoch,
+            "converged": not early_stopped,
+        }
 
-        if verbose:
-            logger.info("Training completed")
-
-        return history
-
-    def predict(self, X: np.ndarray, batch_size: int = 128) -> np.ndarray:
-        """Predict confidence scores for input hidden states.
+    @torch.no_grad()
+    def _compute_validation_loss(
+        self,
+        X_val: torch.Tensor,
+        y_val: torch.Tensor,
+        batch_size: int,
+    ) -> float:
+        """Compute validation loss over the entire validation set.
 
         Args:
-            X: Hidden states (n_samples, input_dim)
-            batch_size: Batch size for inference
+            X_val: Validation hidden states.
+            y_val: Validation labels.
+            batch_size: Batch size for validation.
 
         Returns:
-            Confidence scores (n_samples,)
+            Mean validation loss.
         """
-        if not self.is_fitted:
-            logger.warning("Probe has not been fitted. Results may be unreliable.")
-
         self.eval()
-        self.to(self.device)
 
-        X_tensor = torch.FloatTensor(X).to(self.device)
-        predictions = []
+        dataset = TensorDataset(X_val, y_val)
+        dataloader = DataLoader(dataset, batch_size=batch_size)
 
-        with torch.no_grad():
-            for i in range(0, len(X), batch_size):
-                batch = X_tensor[i : i + batch_size]
-                outputs = self.forward(batch).squeeze()
-                predictions.append(outputs.cpu().numpy())
+        val_losses: List[float] = []
+        for batch_x, batch_y in dataloader:
+            outputs = self.forward(batch_x)
+            if outputs.dim() > 1:
+                outputs = outputs.squeeze(-1)
 
-        return np.concatenate(predictions)
+            loss = nn.functional.binary_cross_entropy(
+                outputs.view(-1, 1), batch_y, reduction='mean'
+            )
+            val_losses.append(loss.item())
 
-    def save(self, path: str):
-        """Save probe weights and configuration.
+        return float(np.mean(val_losses))
+
+    def save(self, path: Union[str, Path]) -> None:
+        """Save probe weights to disk.
 
         Args:
-            path: Path to save the probe
+            path: Path to save the probe weights.
         """
         save_path = Path(path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -207,34 +298,36 @@ class BaseProbe(ABC, nn.Module):
         torch.save(
             {
                 "state_dict": self.state_dict(),
-                "input_dim": self.input_dim,
-                "is_fitted": self.is_fitted,
                 "class_name": self.__class__.__name__,
             },
             save_path,
         )
-        logger.info(f"Saved probe to {save_path}")
 
-    def load(self, path: str):
-        """Load probe weights and configuration.
+    def load(self, path: Union[str, Path]) -> None:
+        """Load probe weights from disk.
 
         Args:
-            path: Path to load the probe from
+            path: Path to load the probe weights from.
         """
-        checkpoint = torch.load(path, map_location=self.device)
-
-        if checkpoint["input_dim"] != self.input_dim:
-            raise ValueError(
-                f"Saved probe has input_dim={checkpoint['input_dim']}, "
-                f"but current probe has input_dim={self.input_dim}"
-            )
+        device = next(self.parameters()).device
+        checkpoint = torch.load(path, map_location=device)
 
         self.load_state_dict(checkpoint["state_dict"])
-        self.is_fitted = checkpoint["is_fitted"]
         self.eval()
 
-        logger.info(f"Loaded probe from {path}")
+    @staticmethod
+    def _to_tensor(x: ArrayLike) -> torch.Tensor:
+        """Convert input array-like to a float32 torch tensor.
 
-    def get_num_parameters(self) -> int:
-        """Get total number of trainable parameters."""
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+        Args:
+            x: Input as NumPy array or torch tensor.
+
+        Returns:
+            Float32 torch tensor.
+        """
+        if isinstance(x, torch.Tensor):
+            return x.float()
+        return torch.from_numpy(np.asarray(x)).float()
+
+
+__all__ = ["BaseProbe"]
