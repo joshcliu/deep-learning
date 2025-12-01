@@ -133,6 +133,32 @@ This document provides context for Claude Code agents working on this project. I
 - WandB integration for experiment tracking
 - Command-line interface with argparse
 
+#### 8. Tinker API Integration ✓ (`src/tinker/`) ✨ NEW (2025-11-30)
+
+**Files**:
+- `client.py`: Tinker API client wrapper with authentication
+- `weights.py`: Download and convert Tinker LoRA weights to PEFT format
+- `__init__.py`: Public API exports
+
+**Key Features**:
+- Seamless integration with Tinker API for distributed LoRA fine-tuning
+- Automatic download of trained weights from Tinker
+- Conversion of Tinker LoRA adapters to PEFT format
+- Load Tinker-trained models into HuggingFace for hidden state extraction
+- Environment variable API key management
+
+**Hybrid Workflow**:
+1. Fine-tune models on Tinker (distributed, efficient)
+2. Download LoRA weights as tar archive
+3. Convert to PEFT format (compatible with HuggingFace)
+4. Load into ModelLoader for hidden state extraction
+5. Probe the fine-tuned model using existing infrastructure
+
+**Integration with Existing Code**:
+- `ModelLoader` updated to support `tinker_lora_path` parameter
+- PEFT library added to requirements for LoRA adapter loading
+- Documentation in `TINKER_INTEGRATION.md`
+
 ### What Is NOT Yet Implemented
 
 #### Phase 1: ✅ COMPLETE
@@ -569,7 +595,7 @@ Next work should focus on advanced calibration methods (CCPS, semantic entropy) 
 
 ## Recent Updates (2025-11-30)
 
-### Completed
+### Phase 1 Completion
 - ✅ Created `src/probes/base.py` - BaseProbe abstract class
 - ✅ Updated `src/probes/__init__.py` - Exports LinearProbe and BaseProbe
 - ✅ Verified dataset loaders (MMLU, TriviaQA, GSM8K) - All functional
@@ -577,6 +603,16 @@ Next work should focus on advanced calibration methods (CCPS, semantic entropy) 
 - ✅ Created `experiments/baseline_linear_probe.py` - End-to-end baseline experiment
 - ✅ Created `experiments/layer_analysis.py` - Systematic layer performance analysis
 - ✅ Updated documentation to reflect Phase 1 completion
+
+### Tinker API Integration
+- ✅ Created `src/tinker/` module - Tinker API integration for distributed fine-tuning
+  - `client.py` - API client wrapper with authentication
+  - `weights.py` - Download and convert Tinker weights to PEFT format
+- ✅ Updated `src/models/loader.py` - Support for loading Tinker LoRA adapters via PEFT
+- ✅ Updated `requirements.txt` - Added PEFT library (required) and Tinker API (optional)
+- ✅ Created `TINKER_INTEGRATION.md` - Comprehensive integration guide
+
+**Hybrid Architecture**: Fine-tune on Tinker → Download weights → Load with PEFT → Extract hidden states for probing
 
 ### Ready to Run
 All components are now implemented and ready for experiments:

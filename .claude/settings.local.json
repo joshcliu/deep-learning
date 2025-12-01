@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebFetch(domain:tinker-docs.thinkingmachines.ai)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

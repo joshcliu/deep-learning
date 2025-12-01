@@ -3,6 +3,12 @@ torch>=2.0.0
 transformers>=4.36.0
 accelerate>=0.25.0
 bitsandbytes>=0.41.0
+peft>=0.7.0  # For LoRA adapter loading
+
+# Tinker API for distributed fine-tuning (optional)
+# Install with: pip install tinker
+# Requires API key: export TINKER_API_KEY=<your_key>
+# tinker>=0.1.0  # Uncomment if using Tinker API
 
 # Data handling
 datasets>=2.14.0

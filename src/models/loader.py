@@ -18,17 +18,26 @@ logger = logging.getLogger(__name__)
 
 
 class ModelLoader:
-    """Unified interface for loading LLMs with optional quantization.
+    """Unified interface for loading LLMs with optional quantization and Tinker LoRA support.
 
     Supports loading models with:
     - No quantization (full precision)
     - 8-bit quantization (bitsandbytes)
     - 4-bit quantization (bitsandbytes)
+    - Tinker LoRA adapters (via PEFT)
 
     Example:
+        >>> # Load standard model
         >>> loader = ModelLoader("meta-llama/Llama-3.1-8B")
         >>> model, tokenizer = loader.load(quantization="8bit")
         >>> print(f"Model loaded with {model.num_parameters():,} parameters")
+        >>>
+        >>> # Load Tinker fine-tuned model
+        >>> loader = ModelLoader(
+        ...     "meta-llama/Llama-3.1-8B",
+        ...     tinker_lora_path="weights/my_finetuned_model/peft_adapter"
+        ... )
+        >>> model, tokenizer = loader.load()
     """
 
     def __init__(
@@ -36,6 +45,7 @@ class ModelLoader:
         model_name: str,
         device: Optional[str] = None,
         use_auth_token: Optional[str] = None,
+        tinker_lora_path: Optional[str] = None,
     ):
         """Initialize model loader.
 
@@ -43,10 +53,13 @@ class ModelLoader:
             model_name: HuggingFace model identifier
             device: Device to load model on ("cuda", "cpu", "auto"). If None, auto-detects.
             use_auth_token: HuggingFace authentication token for gated models
+            tinker_lora_path: Path to Tinker LoRA adapter (PEFT format). If provided,
+                will load base model and apply LoRA adapter.
         """
         self.model_name = model_name
         self.config = get_model_config(model_name)
         self.use_auth_token = use_auth_token
+        self.tinker_lora_path = tinker_lora_path
 
         # Auto-detect device if not specified
         if device is None:
@@ -55,6 +68,8 @@ class ModelLoader:
             self.device = device
 
         logger.info(f"Initialized loader for {model_name} on device: {self.device}")
+        if tinker_lora_path:
+            logger.info(f"Will load Tinker LoRA adapter from: {tinker_lora_path}")
 
     def load(
         self,
@@ -136,6 +151,23 @@ class ModelLoader:
                 use_auth_token=self.use_auth_token,
                 trust_remote_code=trust_remote_code,
             )
+
+            # Load Tinker LoRA adapter if specified
+            if self.tinker_lora_path:
+                logger.info(f"Loading Tinker LoRA adapter from {self.tinker_lora_path}")
+                try:
+                    from peft import PeftModel
+                    model = PeftModel.from_pretrained(model, self.tinker_lora_path)
+                    logger.info("Tinker LoRA adapter loaded successfully")
+                except ImportError:
+                    logger.error("PEFT library not installed. Install with: pip install peft")
+                    raise ImportError(
+                        "PEFT library required for loading Tinker LoRA adapters. "
+                        "Install with: pip install peft"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to load Tinker LoRA adapter: {e}")
+                    raise RuntimeError(f"Failed to load Tinker LoRA adapter: {e}") from e
 
             # Set model to eval mode
             model.eval()

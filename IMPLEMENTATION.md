@@ -16,6 +16,19 @@ All baseline infrastructure is now implemented and ready for use:
 - ✅ **Created `experiments/README.md`**: Comprehensive documentation for running experiments
 - ✅ **Verified all existing modules**: Data loaders, model management, evaluation metrics all functional
 
+### Tinker API Integration
+
+Hybrid architecture for distributed fine-tuning + local probing:
+
+- ✅ **Created `src/tinker/` module**: Complete Tinker API integration
+  - `client.py` - API wrapper with authentication
+  - `weights.py` - Download and convert LoRA weights to PEFT format
+- ✅ **Updated `src/models/loader.py`**: Support for loading Tinker LoRA adapters
+- ✅ **Updated `requirements.txt`**: Added PEFT (required) and Tinker (optional)
+- ✅ **Created `TINKER_INTEGRATION.md`**: Comprehensive integration guide with examples
+
+**Workflow**: Fine-tune on Tinker → Download weights → Load with PEFT → Extract hidden states → Probe
+
 **Ready to run**:
 ```bash
 # Quick test

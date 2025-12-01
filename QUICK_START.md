@@ -92,8 +92,16 @@ After running baseline experiments:
 
 - `experiments/README.md` - Detailed experiment documentation
 - `CLAUDE.md` - Complete project context for AI agents
-- `IMPLEMENTATION_COMPLETE.md` - Phase 1 completion summary
+- `IMPLEMENTATION.md` - Implementation plan and status
+- `TINKER_INTEGRATION.md` - Tinker API integration guide
 - `src/data/DATA_README.md` - Dataset usage guide
+
+## Tinker API (Optional)
+
+Want to use distributed fine-tuning? See `TINKER_INTEGRATION.md` for:
+- How to download Tinker-trained weights
+- Loading Tinker LoRA adapters for probing
+- Hybrid workflow: Train on Tinker → Probe locally
 
 ---
 
