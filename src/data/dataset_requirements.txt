@@ -1,0 +1,4 @@
+# Dataset loading dependencies
+# Add these to your main requirements.txt if not already present
+
+datasets>=2.14.0          # HuggingFace datasets library
