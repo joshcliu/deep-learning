@@ -235,8 +235,11 @@ class HierarchicalProbe(BaseProbe):
             self.layer_attention = nn.MultiheadAttention(
                 embed_dim=hidden_dim, num_heads=8, batch_first=True
             )
+            # Also need a projection for single-vector inputs
+            self.input_projection = nn.Linear(input_dim, hidden_dim)
             effective_dim = hidden_dim
         else:
+            self.input_projection = None
             effective_dim = input_dim
 
         # Hierarchical probe components
@@ -348,6 +351,9 @@ class HierarchicalProbe(BaseProbe):
         # Process multiple layers if using layer fusion
         if self.use_layer_fusion and hiddens.shape[1] > 1:
             processed_hiddens = self._process_layers(hiddens)
+        elif self.use_layer_fusion:
+            # Single vector or short sequence: just project to hidden_dim
+            processed_hiddens = self.input_projection(hiddens)
         else:
             processed_hiddens = hiddens
 
@@ -401,6 +407,9 @@ class HierarchicalProbe(BaseProbe):
         # Process multiple layers if using layer fusion
         if self.use_layer_fusion and hiddens.shape[1] > 1:
             processed_hiddens = self._process_layers(hiddens)
+        elif self.use_layer_fusion:
+            # Single vector or short sequence: just project to hidden_dim
+            processed_hiddens = self.input_projection(hiddens)
         else:
             processed_hiddens = hiddens
 
