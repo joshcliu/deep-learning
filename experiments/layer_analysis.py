@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument(
         "--model",
         type=str,
-        default="meta-llama/Llama-3.1-8B",
+        default="mistralai/Mistral-7B-v0.1",
         help="Model name or path",
     )
     parser.add_argument(
