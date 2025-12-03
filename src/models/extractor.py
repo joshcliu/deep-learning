@@ -213,7 +213,11 @@ class HiddenStateExtractor:
                 masked_hiddens = layer_hiddens * attention_mask
                 token_hiddens = masked_hiddens.sum(dim=1) / attention_mask.sum(dim=1)
 
-            batch_hiddens.append(token_hiddens.detach().cpu().to(torch.float32).numpy())
+            # Convert to float32 numpy array (handles bfloat16 from quantized models)
+            tensor_cpu = token_hiddens.detach().cpu()
+            if tensor_cpu.dtype == torch.bfloat16:
+                tensor_cpu = tensor_cpu.float()
+            batch_hiddens.append(tensor_cpu.numpy())
 
         # Stack layers: (batch, num_layers, hidden_dim)
         return np.stack(batch_hiddens, axis=1)
