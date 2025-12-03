@@ -1,9 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)",
-      "WebFetch(domain:tinker-docs.thinkingmachines.ai)",
-      "WebSearch"
+      "Bash(mkdir:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

@@ -24,25 +24,9 @@ python experiments/baseline_linear_probe.py
 # Custom config
 python experiments/baseline_linear_probe.py --config configs/custom.yaml
 
-# Override specific settings
-python experiments/baseline_linear_probe.py --layers 8 16 24 --num-samples 500
-
 # Disable WandB
 python experiments/baseline_linear_probe.py --no-wandb
 ```
-
-**Arguments:**
-- `--config`: Path to config file (default: `configs/linear_probe.yaml`)
-- `--layers`: Layer indices to probe (overrides config)
-- `--num-samples`: Limit number of samples for quick testing
-- `--no-wandb`: Disable WandB logging
-
-**Output:**
-- Trained probe checkpoints in `outputs/<experiment-name>/checkpoints/`
-- Training logs and metrics
-- WandB dashboard (if enabled)
-
-**Example config:** See `configs/linear_probe.yaml`
 
 ---
 
@@ -58,32 +42,62 @@ Systematic analysis of probe performance across ALL layers to identify optimal l
 
 **Usage:**
 ```bash
-# Quick mode (quartile layers only, good for testing)
+# Quick mode (quartile layers only)
 python experiments/layer_analysis.py --quick --num-samples 200
 
 # Full analysis (all layers)
 python experiments/layer_analysis.py --num-samples 500
-
-# Custom model
-python experiments/layer_analysis.py --model meta-llama/Llama-2-7b-hf
-
-# With quantization
-python experiments/layer_analysis.py --quantization 8bit
 ```
 
-**Arguments:**
-- `--model`: Model name or path (default: `meta-llama/Llama-3.1-8B`)
-- `--dataset`: Dataset to use (`mmlu`, `triviaqa`, `gsm8k`)
-- `--num-samples`: Number of dataset samples to use
-- `--quick`: Quick mode - test quartile layers only (0%, 25%, 50%, 75%, 100%)
-- `--quantization`: Model quantization (`4bit`, `8bit`, `none`)
-- `--output-dir`: Output directory (default: `outputs/layer_analysis`)
+---
 
-**Output:**
-- `layer_analysis.png`: Line plots of metrics by layer
-- `layer_heatmap.png`: Heatmap visualization of all metrics
-- `results.txt`: Numerical results table
-- Hidden state cache in `<output-dir>/cache/`
+### 3. Hierarchical Multi-Scale Probe (`hierarchical_probe.py`)
+
+**Novel contribution**: Trains hierarchical probe that operates at four levels of granularity (token → span → semantic → global).
+
+**What it does:**
+- Extracts hidden states from multiple LLM layers
+- Trains hierarchical probe with cross-layer attention fusion
+- Compares against baseline linear/MLP probes
+- Evaluates calibration at multiple scales
+- Generates interpretable uncertainty hierarchies
+
+**Usage:**
+```bash
+# Basic usage
+python experiments/hierarchical_probe.py
+
+# Debug mode (faster, 100 samples)
+python experiments/hierarchical_probe.py --debug
+
+# Custom config
+python experiments/hierarchical_probe.py --config configs/hierarchical_probe.yaml
+
+# Skip baseline comparisons
+python experiments/hierarchical_probe.py --skip-baselines
+```
+
+**Architecture:**
+```
+Input: Hidden states from multiple LLM layers (e.g., layers 8, 16, 24, 31)
+    ↓
+[Layer Fusion] - Cross-attention over layers
+    ↓
+[Token-Level Probe] → Token confidences (per-word uncertainty)
+    ↓
+[Span-Level Probe] → Span confidence (phrase-level aggregation)
+    ↓
+[Semantic-Level Probe] → Semantic confidence (meaning coherence)
+    ↓
+[Global Aggregation] → Final confidence score
+```
+
+**Configuration:** See `configs/hierarchical_probe.yaml`
+
+**Expected improvements over linear baseline:**
+- 40-50% ECE reduction
+- Better AUROC for hallucination detection
+- Interpretable multi-scale uncertainty
 
 ---
 
@@ -96,15 +110,12 @@ python experiments/layer_analysis.py --quantization 8bit
    pip install -r requirements.txt
    ```
 
-2. **Configure experiment:**
-   Edit `configs/linear_probe.yaml` to set:
-   - Model name (ensure you have access/token if gated)
-   - Quantization settings (based on your GPU memory)
-   - Dataset and layer preferences
-
-3. **Run quick test:**
+2. **Run quick test:**
    ```bash
-   # Test with small sample (fast, good for debugging)
+   # Verify everything works
+   python test_integration.py
+
+   # Quick layer analysis
    python experiments/layer_analysis.py --quick --num-samples 100
    ```
 
@@ -112,79 +123,21 @@ python experiments/layer_analysis.py --quantization 8bit
 
 **Baseline experiment:**
 ```bash
-# Default: Llama 3.1 8B on MMLU, layers [8, 16, 24, 31]
 python experiments/baseline_linear_probe.py
-
-# With WandB logging
-python experiments/baseline_linear_probe.py --config configs/linear_probe.yaml
 ```
 
 **Layer analysis:**
 ```bash
-# Full analysis on Llama 3.1 8B (32 layers)
 python experiments/layer_analysis.py --num-samples 500
-
-# Takes ~2-4 hours depending on GPU
-# Generates visualizations and saves results
 ```
 
-**Testing different models:**
+**Hierarchical probe:**
 ```bash
-# Llama 2 7B
-python experiments/layer_analysis.py --model meta-llama/Llama-2-7b-hf --quick
+# Debug mode first (fast)
+python experiments/hierarchical_probe.py --debug
 
-# Mistral 7B
-python experiments/layer_analysis.py --model mistralai/Mistral-7B-v0.1 --quick
-
-# Qwen 2.5 7B
-python experiments/layer_analysis.py --model Qwen/Qwen2.5-7B --quick
-```
-
----
-
-## Configuration
-
-### Config File Structure (`configs/linear_probe.yaml`)
-
-```yaml
-experiment:
-  name: "experiment-name"
-  seed: 42
-  output_dir: "outputs"
-
-model:
-  name: "meta-llama/Llama-3.1-8B"
-  quantization: "8bit"  # 4bit, 8bit, or null
-  device: "auto"
-
-data:
-  dataset: "mmlu"
-  split_ratio: [0.7, 0.15, 0.15]  # train/val/test
-  batch_size: 32
-  max_length: 512
-  num_samples: null  # null = use all
-
-extraction:
-  layers: [8, 16, 24, 31]  # null = use optimal from registry
-  token_position: "last"
-  use_cache: true
-
-probe:
-  dropout: 0.0
-
-training:
-  epochs: 50
-  learning_rate: 1e-3
-  weight_decay: 1e-5
-  early_stopping_patience: 5
-
-evaluation:
-  metrics: ["ece", "brier", "auroc", "aupr", "accuracy"]
-  num_bins: 10
-
-logging:
-  use_wandb: false
-  wandb_project: "llm-confidence"
+# Full run when ready
+python experiments/hierarchical_probe.py
 ```
 
 ---
@@ -193,25 +146,24 @@ logging:
 
 ### Layer Analysis
 
-Based on research literature, you should observe:
-
-1. **Middle layers (50-75% depth) perform best** for uncertainty quantification
-2. **Early layers (0-25%)**: Poor performance (still learning basic features)
-3. **Middle layers (25-75%)**: Best performance (semantic understanding)
-4. **Final layers (75-100%)**: Moderate performance (task-specific specialization)
-
-**Example for Llama 3.1 8B (32 layers):**
-- Best layer: ~16-24 (middle layers)
-- ECE: 0.05-0.10 (well-calibrated if < 0.05)
-- AUROC: 0.75-0.85 (good discrimination)
+Middle layers (50-75% depth) typically perform best:
+- Best layer for Llama 3.1 8B: ~16-24
+- ECE: 0.05-0.10
+- AUROC: 0.75-0.85
 
 ### Baseline Linear Probe
 
-**Expected metrics:**
-- **ECE (Expected Calibration Error)**: < 0.10 is reasonable, < 0.05 is excellent
-- **Brier Score**: Lower is better, ~0.15-0.25 typical
-- **AUROC**: > 0.75 is good for hallucination detection
-- **Accuracy**: Depends on model quality, 60-80% typical
+- **ECE**: < 0.10 reasonable, < 0.05 excellent
+- **AUROC**: > 0.75 good for hallucination detection
+
+### Hierarchical Probe
+
+| Method | ECE | Brier | AUROC | Parameters |
+|--------|-----|-------|-------|------------|
+| Linear | ~0.080 | ~0.160 | ~0.810 | ~4K |
+| **Hierarchical** | **~0.045** | **~0.120** | **~0.865** | **~10M** |
+
+Target: **40-50% ECE improvement** over linear baseline
 
 ---
 
@@ -219,76 +171,20 @@ Based on research literature, you should observe:
 
 ### Memory Management
 
-1. **Use quantization for large models:**
-   - 8-bit for 7B-13B models: ~8-16GB VRAM
-   - 4-bit for 70B models: ~40GB VRAM
-
-2. **Start with `--num-samples 200` for testing**
-   - Quick iteration during development
-   - Full run when ready (500-1000 samples recommended)
-
-3. **Enable caching** (default: ON)
-   - First run: slow (extracts hidden states)
-   - Subsequent runs: fast (loads from cache)
-   - Cache location: `<output-dir>/cache/`
+1. Use quantization for large models (8-bit for 7B-13B models)
+2. Start with `--num-samples 200` for testing
+3. Enable caching (default: ON) for faster subsequent runs
 
 ### Debugging
 
 If experiments fail:
+```bash
+# Test with minimal config
+python experiments/layer_analysis.py --quick --num-samples 50
 
-1. **Test with minimal config:**
-   ```bash
-   python experiments/layer_analysis.py --quick --num-samples 50
-   ```
-
-2. **Check GPU memory:**
-   ```python
-   import torch
-   print(torch.cuda.memory_allocated() / 1e9)  # GB
-   ```
-
-3. **Reduce batch size** in config if OOM errors
-
-4. **Verify model access:**
-   - Gated models (Llama) need HuggingFace token
-   - Set `use_auth_token` in config
-
-### Reproducibility
-
-- Set `seed` in config for deterministic results
-- Cache ensures same hidden states across runs
-- Log all hyperparameters to WandB/config files
-
----
-
-## Adding New Experiments
-
-To create a new experiment:
-
-1. **Copy a template:**
-   ```bash
-   cp experiments/baseline_linear_probe.py experiments/my_experiment.py
-   ```
-
-2. **Follow the pattern:**
-   ```python
-   from src.utils import load_config, ExperimentLogger, setup_logging
-   from src.models import ModelLoader, HiddenStateExtractor
-   from src.data import MMLUDataset
-   from src.probes import LinearProbe
-   from src.evaluation import CalibrationMetrics
-
-   def main():
-       setup_logging(log_level="INFO")
-       config = load_config("configs/my_config.yaml")
-       logger = ExperimentLogger(config.experiment.name, config=config)
-
-       # Your experiment logic
-
-       logger.finish()
-   ```
-
-3. **Document in this README**
+# Check imports work
+python test_integration.py
+```
 
 ---
 
@@ -296,9 +192,9 @@ To create a new experiment:
 
 After running baseline experiments:
 
-1. **Implement CCPS** (Conformal Calibration via Perturbation Sampling)
-2. **Implement Semantic Entropy**
-3. **Cross-model comparison** experiments
-4. **Cross-dataset evaluation**
+1. **Analyze hierarchical results**: Use `notebooks/hierarchical_analysis.ipynb`
+2. **Implement CCPS** (advanced calibration method)
+3. **Cross-model comparison** (Llama vs Mistral vs Qwen)
+4. **Write paper**: Document findings for NeurIPS/ICLR
 
 See `CLAUDE.md` for detailed research roadmap.

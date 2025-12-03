@@ -1,0 +1,83 @@
+# Hierarchical Multi-Scale Probe Experiment Configuration
+# This config trains a hierarchical probe that operates at multiple granularities:
+# token-level, span-level, semantic-level, and global-level
+
+experiment:
+  name: "llama-3.1-8b-hierarchical-probe"
+  seed: 42
+  output_dir: "outputs/hierarchical"
+  description: "Novel hierarchical multi-scale probing for uncertainty quantification"
+
+model:
+  name: "meta-llama/Llama-3.1-8B"
+  quantization: "8bit"  # Options: "4bit", "8bit", null (no quantization)
+  device: "auto"  # Options: "auto", "cuda", "cpu"
+  use_auth_token: null  # Set to your HF token for gated models
+
+data:
+  dataset: "mmlu"  # Options: "mmlu", "triviaqa", "gsm8k", "truthfulqa"
+  subjects: null  # null = all subjects, or list like ["abstract_algebra", "anatomy"]
+  split_ratio: [0.7, 0.15, 0.15]  # Train/val/test split
+  batch_size: 16  # Smaller batch due to hierarchical complexity
+  max_length: 512
+  num_samples: null  # Limit number of samples (null = use all)
+  format_type: "standard"  # Prompt format: "standard" or "instruct"
+
+extraction:
+  # Use multiple layers for hierarchical processing
+  # Early layers (8), middle layers (16), late layers (24, 31)
+  layers: [8, 16, 24, 31]
+  token_position: "all"  # Extract all tokens for sequence-level processing
+  cache_dir: "cache/llama-3.1-8b-hierarchical"
+  use_cache: true
+  extract_sequences: true  # Important: need full sequences not just last token
+
+probe:
+  type: "hierarchical"
+  input_dim: 4096  # Auto-detected from model
+  hidden_dim: 512  # Hidden dimension for hierarchical components
+  num_layers: 4  # Number of model layers to fuse (matches extraction.layers)
+  use_layer_fusion: true  # Fuse information across multiple layers
+  token_hidden_dim: 256  # Hidden dim for token-level probe
+  span_hidden_dim: 256  # Hidden dim for span-level probe
+  semantic_hidden_dim: 256  # Hidden dim for semantic-level probe
+  span_size: 4  # Size of spans to consider
+  dropout: 0.1
+
+training:
+  epochs: 100  # More epochs for complex model
+  learning_rate: 5e-4  # Slightly lower LR for stability
+  weight_decay: 1e-4
+  optimizer: "adamw"
+  scheduler: "cosine"  # Cosine annealing for smooth convergence
+  warmup_steps: 100  # Warmup steps for scheduler
+  early_stopping_patience: 15  # More patience for complex model
+  gradient_clip: 1.0
+  mixed_precision: true  # Use automatic mixed precision if available
+
+evaluation:
+  metrics: ["ece", "brier", "auroc", "aupr", "accuracy"]
+  calibration_method: "temperature"  # Options: "temperature", "platt", null
+  num_bins: 10  # For ECE calculation
+  coverage_levels: [0.7, 0.8, 0.9, 0.95]  # For selective prediction
+  save_plots: true
+  plot_dir: "plots/hierarchical"
+  # Hierarchical-specific evaluation
+  analyze_levels: true  # Analyze performance at each hierarchy level
+  save_intermediate_predictions: true  # Save token/span/semantic predictions
+
+logging:
+  use_wandb: false  # Set to true for experiment tracking
+  wandb_project: "llm-confidence-hierarchical"
+  wandb_entity: null
+  wandb_tags: ["hierarchical", "multi-scale", "llama", "novel"]
+  log_interval: 10  # Log every N batches
+  save_checkpoints: true
+  checkpoint_interval: 10  # Save every N epochs
+  log_level: "INFO"
+
+# Comparison experiments
+baselines:
+  run_linear_baseline: true  # Run linear probe for comparison
+  run_mlp_baseline: true  # Run MLP probe for comparison
+  baseline_config: "configs/linear_probe.yaml"
