@@ -336,15 +336,13 @@ def main():
 
     # Load model
     print("Loading model...")
-    model_loader = ModelLoader(
-        model_name=args.model,
-        quantization=None if args.quantization == "none" else args.quantization,
-        device_map="auto",
-    )
-    model, tokenizer = model_loader.load()
+    model_loader = ModelLoader(model_name=args.model)
+    quantization = None if args.quantization == "none" else args.quantization
+    model, tokenizer = model_loader.load(quantization=quantization, device_map="auto")
     model_info = model_loader.get_model_info()
     num_layers = model_info["num_layers"]
-    print(f"Model loaded: {num_layers} layers, {model_info['num_parameters']/1e9:.2f}B params")
+    num_params = sum(p.numel() for p in model.parameters())
+    print(f"Model loaded: {num_layers} layers, {num_params/1e9:.2f}B params")
 
     # Determine layers to analyze
     layers = get_layer_indices(num_layers, quick=args.quick)
