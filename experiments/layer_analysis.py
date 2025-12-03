@@ -363,7 +363,7 @@ def main():
     # Extract hidden states for all layers
     print(f"\nExtracting hidden states from {len(layers)} layers...")
     cache_dir = output_dir / "cache"
-    extractor = HiddenStateExtractor(model, tokenizer, cache_dir=str(cache_dir))
+    extractor = HiddenStateExtractor(model, tokenizer)
 
     all_hiddens = {}
     for layer in tqdm(layers, desc="Extracting layers"):
@@ -372,6 +372,7 @@ def main():
             layers=[layer],
             max_length=512,
             token_position="last",
+            cache_dir=str(cache_dir),
             use_cache=True,
             batch_size=16,
         )
