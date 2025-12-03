@@ -400,6 +400,14 @@ class LinearProbe(BaseProbe):
     # Utilities and introspection
     # -------------------------------------------------------------------------
 
+    def get_num_parameters(self) -> int:
+        """Get the total number of trainable parameters in the probe.
+
+        Returns:
+            Total number of parameters.
+        """
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
     @functools.lru_cache(maxsize=1)
     def get_model_info(self) -> Dict[str, Any]:
         """Get probe architecture information.
