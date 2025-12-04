@@ -27,8 +27,10 @@ Train lightweight **probes** on LLM hidden states to:
 - ✅ **Hidden State Extraction**: Efficient layer-wise extraction with automatic caching
 - ✅ **Dataset Loaders**: MMLU, TriviaQA, GSM8K with standardized interfaces
 - ✅ **Linear Probes**: Temperature-scaled classifiers with early stopping
+- ✅ **Calibrated Probes**: Brier score loss for proper calibration ⭐ NEW
 - ✅ **Calibration Metrics**: ECE, Brier, AUROC, AUPR with visualizations
 - ✅ **Experiment Scripts**: Ready-to-run baseline experiments
+- ✅ **Colab Notebooks**: GPU-accelerated experiments on Google Colab ⭐ NEW
 - ✅ **Tinker API Integration**: Distributed fine-tuning → local probing workflow
 - ✅ **WandB Logging**: Track experiments with automatic artifact saving
 
@@ -51,16 +53,21 @@ pip install tinker
 export TINKER_API_KEY=your_key
 ```
 
-### Run Your First Experiment (5 minutes)
+### Run Your First Experiment
 
+**Option A: Local (CPU - slow, ~30+ min)**
 ```bash
-# Quick test - validates full pipeline
 python experiments/layer_analysis.py --quick --num-samples 100
 ```
 
+**Option B: Google Colab (GPU - fast, recommended)** ⭐
+1. Open `notebooks/colab_layer_analysis.ipynb` in Colab
+2. Set Runtime > GPU (T4)
+3. Run all cells (~5 min)
+
 This will:
 1. Load MMLU dataset
-2. Extract hidden states from a small model
+2. Extract hidden states from Mistral 7B
 3. Train probes on multiple layers
 4. Generate performance visualizations
 5. Save results to `outputs/layer_analysis/`
@@ -89,16 +96,16 @@ Expected results:
 ```python
 from src.models import ModelLoader, HiddenStateExtractor
 
-# Load model with quantization
-loader = ModelLoader("meta-llama/Llama-3.1-8B")
-model, tokenizer = loader.load(quantization="8bit")
+# Load model with quantization (note: quantization goes in load(), not __init__)
+loader = ModelLoader("mistralai/Mistral-7B-v0.1")  # Ungated, no approval needed
+model, tokenizer = loader.load(quantization="8bit", device_map="auto")
 
-# Extract hidden states from quartile layers
+# Extract hidden states from quartile layers (note: cache_dir goes in extract())
 extractor = HiddenStateExtractor(model, tokenizer)
 hiddens = extractor.extract(
     texts=["What is the capital of France?"],
     layers=[8, 16, 24, 31],
-    cache_dir="cache/llama-3.1-8b",
+    cache_dir="cache/mistral-7b",
     use_cache=True  # Reuse if already extracted
 )
 
@@ -108,14 +115,14 @@ print(f"Shape: {hiddens.shape}")  # (1, 4, 4096) - texts, layers, hidden_dim
 ### 2. Train a Probe
 
 ```python
-from src.probes import LinearProbe
+from src.probes import LinearProbe, CalibratedProbe
 import numpy as np
 
 # Prepare data
 hiddens_train = np.random.randn(1000, 4096)  # From your extracted states
 labels_train = np.random.randint(0, 2, 1000)  # 0=incorrect, 1=correct
 
-# Train probe with temperature scaling
+# Option A: LinearProbe with BCE loss
 probe = LinearProbe(input_dim=4096, dropout=0.1)
 history = probe.fit(
     X_train=hiddens_train,
@@ -123,9 +130,19 @@ history = probe.fit(
     X_val=hiddens_val,
     y_val=labels_val,
     batch_size=128,
-    num_epochs=50,
-    patience=5
+    num_epochs=50,  # Note: num_epochs, not epochs
+    patience=5      # Note: patience, not early_stopping_patience
 )
+
+# Option B: CalibratedProbe with Brier score loss (RECOMMENDED)
+# Brier loss: (confidence - correct)^2
+# Properly penalizes high confidence on wrong answers!
+probe = CalibratedProbe(
+    input_dim=4096,
+    hidden_dim=256,  # MLP hidden layer (None for linear)
+    dropout=0.1
+)
+probe.fit(hiddens_train, labels_train, hiddens_val, labels_val)
 
 # Predict confidence scores
 confidences = probe.predict(hiddens_test)
@@ -211,7 +228,7 @@ deep-learning/
 ├── src/
 │   ├── models/          # ✅ Model loading + hidden state extraction
 │   ├── data/            # ✅ Dataset loaders (MMLU, TriviaQA, GSM8K)
-│   ├── probes/          # ✅ Linear probes with temperature scaling
+│   ├── probes/          # ✅ Linear, Calibrated, Hierarchical probes
 │   ├── evaluation/      # ✅ Calibration metrics + visualizations
 │   ├── tinker/          # ✅ Tinker API integration
 │   └── utils/           # ✅ Configuration, logging, caching
@@ -219,13 +236,15 @@ deep-learning/
 │   ├── baseline_linear_probe.py
 │   ├── layer_analysis.py
 │   └── README.md
+├── notebooks/           # ✅ Colab-ready notebooks
+│   ├── colab_layer_analysis.ipynb     # Basic layer analysis
+│   └── colab_calibrated_probe.ipynb   # Model self-knowledge ⭐
 ├── configs/             # ✅ YAML configuration files
-├── notebooks/           # Jupyter notebooks for exploration
 ├── cache/               # Cached hidden states (auto-generated)
 └── outputs/             # Experiment results (auto-generated)
 ```
 
-**Status**: Phase 1 Complete ✅ | All baseline infrastructure implemented
+**Status**: Phase 1 Complete ✅ | Phase 2 In Progress
 
 ---
 
@@ -242,7 +261,7 @@ deep-learning/
 | Qwen 2.5 | 14B | 48 | 5120 | 8-bit | 28GB |
 | Qwen 2.5 | 72B | 80 | 8192 | 4-bit | 144GB |
 
-**Recommended**: Start with Llama 3.1 8B (well-documented, good performance)
+**Recommended**: Start with Mistral 7B (ungated, no approval required) or Llama 3.1 8B (requires HuggingFace approval)
 
 ---
 
