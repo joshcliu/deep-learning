@@ -21,6 +21,40 @@ from .base import BaseProbe
 ArrayLike = Union[np.ndarray, torch.Tensor]
 
 
+def build_default_network(
+    input_dim: int,
+    hidden_dim: Optional[int] = 256,
+    dropout: float = 0.1,
+) -> nn.Module:
+    """Build the default MLP network for CalibratedProbe.
+
+    Args:
+        input_dim: Input feature dimension.
+        hidden_dim: Hidden layer dimension. If None, uses linear probe.
+        dropout: Dropout probability.
+
+    Returns:
+        nn.Module that maps (batch, input_dim) -> (batch, 1) with sigmoid output.
+    """
+    if hidden_dim is None:
+        # Linear probe
+        return nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(input_dim, 1),
+            nn.Sigmoid(),
+        )
+    else:
+        # MLP probe
+        return nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, 1),
+            nn.Sigmoid(),
+        )
+
+
 class CalibratedProbe(BaseProbe):
     """Probe trained with Brier score loss for well-calibrated confidence.
 
