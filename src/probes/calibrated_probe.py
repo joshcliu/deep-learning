@@ -68,23 +68,37 @@ class CalibratedProbe(BaseProbe):
     - Low confidence + correct answer → medium loss (could be better)
 
     Args:
-        input_dim: Dimensionality of hidden state features.
-        hidden_dim: Hidden layer dimension (None for linear probe).
-        dropout: Dropout probability.
+        network: Custom nn.Module mapping (batch, input_dim) -> (batch, 1).
+            Must output probabilities in [0, 1] (e.g., end with Sigmoid).
+            If None, uses default MLP network.
+        input_dim: Dimensionality of hidden state features (required if network is None).
+        hidden_dim: Hidden layer dimension for default network (None for linear probe).
+        dropout: Dropout probability for default network.
         lr: Learning rate.
         weight_decay: L2 regularization.
         device: Device to run on.
 
     Example:
+        >>> # Default MLP network
         >>> probe = CalibratedProbe(input_dim=4096, hidden_dim=256)
         >>> probe.fit(hidden_states, correctness_labels)
         >>> confidences = probe.predict(test_hidden_states)
+        >>>
+        >>> # Custom network
+        >>> custom_net = nn.Sequential(
+        ...     nn.Linear(4096, 512),
+        ...     nn.GELU(),
+        ...     nn.Linear(512, 1),
+        ...     nn.Sigmoid()
+        ... )
+        >>> probe = CalibratedProbe(network=custom_net)
     """
 
     def __init__(
         self,
-        input_dim: int,
-        hidden_dim: Optional[int] = None,
+        network: Optional[nn.Module] = None,
+        input_dim: Optional[int] = None,
+        hidden_dim: Optional[int] = 256,
         dropout: float = 0.1,
         lr: float = 1e-3,
         weight_decay: float = 1e-5,
@@ -97,23 +111,12 @@ class CalibratedProbe(BaseProbe):
         self.device = torch.device(device)
 
         # Build network
-        if hidden_dim is None:
-            # Linear probe
-            self.network = nn.Sequential(
-                nn.Dropout(dropout),
-                nn.Linear(input_dim, 1),
-                nn.Sigmoid(),
-            )
+        if network is not None:
+            self.network = network
         else:
-            # MLP probe
-            self.network = nn.Sequential(
-                nn.Dropout(dropout),
-                nn.Linear(input_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(dropout),
-                nn.Linear(hidden_dim, 1),
-                nn.Sigmoid(),
-            )
+            if input_dim is None:
+                raise ValueError("input_dim is required when network is None")
+            self.network = build_default_network(input_dim, hidden_dim, dropout)
 
         self.lr = lr
         self.weight_decay = weight_decay
@@ -264,4 +267,4 @@ class CalibratedProbe(BaseProbe):
         return torch.from_numpy(np.asarray(x)).float()
 
 
-__all__ = ["CalibratedProbe"]
+__all__ = ["CalibratedProbe", "build_default_network"]
