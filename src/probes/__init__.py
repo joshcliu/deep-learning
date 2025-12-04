@@ -10,6 +10,16 @@ Available probes:
 - HierarchicalProbe: Multi-scale probe with token/span/semantic/global levels
 - BaseProbe: Abstract base class for implementing custom probes
 
+Novel architectures (via CalibratedProbe + custom network):
+- AttentionProbe: Self-attention over hidden state chunks
+- ResidualProbe: Deep MLP with skip connections
+- BottleneckProbe: Compression to low-rank representation
+- MultiHeadProbe: Multiple expert heads with learned aggregation
+- GatedProbe: GLU-style gating for feature selection
+- SparseProbe: Top-k dimension selection (interpretable)
+- HeteroscedasticProbe: Per-example uncertainty estimation
+- BilinearProbe: Explicit feature interactions
+
 Usage:
     from src.probes import LinearProbe, CalibratedProbe, MLPProbe, HierarchicalProbe
 
@@ -21,6 +31,11 @@ Usage:
     probe = CalibratedProbe(input_dim=4096, hidden_dim=256)
     history = probe.fit(X_train, y_train, X_val, y_val)
     confidences = probe.predict(X_test)
+
+    # Novel architecture: Attention probe
+    from src.probes.architectures import build_attention_network
+    network = build_attention_network(input_dim=4096, num_chunks=16)
+    probe = CalibratedProbe(network=network)
 
     # Or use MLP probe for stronger baseline
     mlp_probe = MLPProbe(input_dim=4096, hidden_dim=512, num_layers=2)
@@ -35,15 +50,37 @@ Usage:
 
 from .base import BaseProbe, ArrayLike
 from .linear import LinearProbe
-from .calibrated_probe import CalibratedProbe
+from .calibrated_probe import CalibratedProbe, build_default_network
 from .mlp import MLPProbe
 from .hierarchical import HierarchicalProbe
+from .architectures import (
+    build_attention_network,
+    build_residual_network,
+    build_bottleneck_network,
+    build_multihead_network,
+    build_gated_network,
+    build_sparse_network,
+    build_heteroscedastic_network,
+    build_bilinear_network,
+)
 
 __all__ = [
+    # Base
     "BaseProbe",
     "ArrayLike",
+    # Probe classes
     "LinearProbe",
     "CalibratedProbe",
     "MLPProbe",
     "HierarchicalProbe",
+    # Network builders
+    "build_default_network",
+    "build_attention_network",
+    "build_residual_network",
+    "build_bottleneck_network",
+    "build_multihead_network",
+    "build_gated_network",
+    "build_sparse_network",
+    "build_heteroscedastic_network",
+    "build_bilinear_network",
 ]
