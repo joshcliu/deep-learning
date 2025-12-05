@@ -63,7 +63,8 @@ from .architectures import (
     build_sparse_network,
     build_heteroscedastic_network,
     build_bilinear_network,
-    build_contrastive_network
+    build_contrastive_network,
+    ContrastiveProbe,
 )
 
 __all__ = [
