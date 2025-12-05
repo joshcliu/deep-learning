@@ -190,7 +190,7 @@ class CalibratedProbe(BaseProbe):
         best_val_loss = float("inf")
         best_state = None
         best_epoch = 0
-        no_improve = 0
+        # no_improve = 0
 
         epoch_iter = tqdm(range(num_epochs), desc="Training", disable=not verbose)
 
@@ -229,13 +229,13 @@ class CalibratedProbe(BaseProbe):
                     best_val_loss = val_loss
                     best_state = self.state_dict()
                     best_epoch = epoch
-                    no_improve = 0
-                else:
-                    no_improve += 1
-                    if no_improve >= patience:
-                        if verbose:
-                            print(f"\nEarly stopping at epoch {epoch}")
-                        break
+                    # no_improve = 0
+                # else:
+                    # no_improve += 1
+                    # if no_improve >= patience:
+                    #     if verbose:
+                    #         print(f"\nEarly stopping at epoch {epoch}")
+                    #     break
             else:
                 epoch_iter.set_postfix({"train_brier": f"{mean_train_loss:.4f}"})
 
