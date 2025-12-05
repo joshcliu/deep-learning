@@ -624,6 +624,20 @@ def build_contrastive_network(
     Returns:
         nn.Module implementing a contrastive probe with orthogonality regularization.
     """
+    class ContrastiveProbeWrapper(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dropout = nn.Dropout(dropout)
+            self.probe = ContrastiveProbe(input_dim, spurious_directions)
+
+        def forward(self, x):
+            x = self.dropout(x)
+            return self.probe(x)
+
+        def loss(self, predictions, labels):
+            return self.probe.loss(predictions, labels)
+
+    return ContrastiveProbeWrapper()
 
 
 # =============================================================================
@@ -640,6 +654,7 @@ __all__ = [
     "build_sparse_network",
     "build_heteroscedastic_network",
     "build_bilinear_network",
+    "build_contrastive_network",
     # Network classes (for customization)
     "ChunkedSelfAttention",
     "ResidualBlock",
