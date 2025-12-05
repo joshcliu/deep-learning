@@ -53,6 +53,7 @@ from .linear import LinearProbe
 from .calibrated_probe import CalibratedProbe, build_default_network
 from .mlp import MLPProbe
 from .hierarchical import HierarchicalProbe
+
 from .architectures import (
     build_attention_network,
     build_residual_network,
@@ -74,7 +75,6 @@ __all__ = [
     "CalibratedProbe",
     "MLPProbe",
     "HierarchicalProbe",
-    "ContrastiveProbe",
     # Network builders
     "build_default_network",
     "build_attention_network",
