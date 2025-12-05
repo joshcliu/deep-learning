@@ -19,6 +19,7 @@ Novel architectures (via CalibratedProbe + custom network):
 - SparseProbe: Top-k dimension selection (interpretable)
 - HeteroscedasticProbe: Per-example uncertainty estimation
 - BilinearProbe: Explicit feature interactions
+- HierarchicalProbe: Multi-scale hierarchical processing (fine → coarse → global)
 
 Usage:
     from src.probes import LinearProbe, CalibratedProbe, MLPProbe, HierarchicalProbe
@@ -35,6 +36,11 @@ Usage:
     # Novel architecture: Attention probe
     from src.probes.architectures import build_attention_network
     network = build_attention_network(input_dim=4096, num_chunks=16)
+    probe = CalibratedProbe(network=network)
+
+    # Novel architecture: Hierarchical multi-scale probe
+    from src.probes.architectures import build_hierarchical_network
+    network = build_hierarchical_network(input_dim=4096, num_chunks=16)
     probe = CalibratedProbe(network=network)
 
     # Or use MLP probe for stronger baseline
@@ -65,6 +71,7 @@ from .architectures import (
     build_bilinear_network,
     build_contrastive_network,
     ContrastiveProbe,
+    build_hierarchical_network,
 )
 
 __all__ = [
@@ -87,4 +94,5 @@ __all__ = [
     "build_heteroscedastic_network",
     "build_bilinear_network",
     "build_contrastive_network",
+    "build_hierarchical_network",
 ]

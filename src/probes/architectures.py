@@ -641,6 +641,139 @@ def build_contrastive_network(
 
 
 # =============================================================================
+# 9. HIERARCHICAL PROBE
+# =============================================================================
+# Hypothesis: Uncertainty information exists at multiple levels of granularity.
+# Process hidden states hierarchically: fine-grained → coarse-grained → global.
+
+
+class HierarchicalNetwork(nn.Module):
+    """Hierarchical multi-scale confidence network.
+
+    Processes the hidden state at multiple levels of granularity:
+    1. Fine-grained: Individual chunks (token-level analogy)
+    2. Mid-level: Aggregated chunks (span-level analogy)
+    3. Semantic: Broader aggregation (semantic-level analogy)
+    4. Global: Final aggregation
+
+    Each level builds on the previous, creating a hierarchy of representations.
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        num_chunks: int = 16,
+        hidden_dim: int = 256,
+        dropout: float = 0.1,
+    ):
+        super().__init__()
+        assert input_dim % num_chunks == 0, "input_dim must be divisible by num_chunks"
+
+        self.num_chunks = num_chunks
+        self.chunk_dim = input_dim // num_chunks
+        self.hidden_dim = hidden_dim
+
+        # Fine-grained processing (per-chunk)
+        self.fine_processor = nn.Sequential(
+            nn.Linear(self.chunk_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+        )
+
+        # Mid-level aggregation (attention over chunks)
+        self.mid_attention = nn.MultiheadAttention(
+            embed_dim=hidden_dim // 2,
+            num_heads=4,
+            dropout=dropout,
+            batch_first=True,
+        )
+
+        # Semantic-level processing
+        self.semantic_processor = nn.Sequential(
+            nn.Linear(hidden_dim // 2, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+        )
+
+        # Global aggregation
+        self.global_processor = nn.Sequential(
+            nn.Linear(hidden_dim // 2 * 2, hidden_dim),  # Concat mid + semantic
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim // 2, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (batch, input_dim)
+        batch_size = x.shape[0]
+
+        # Split into chunks: (batch, num_chunks, chunk_dim)
+        chunks = x.view(batch_size, self.num_chunks, self.chunk_dim)
+
+        # Fine-grained: Process each chunk independently
+        fine_features = self.fine_processor(chunks)  # (batch, num_chunks, hidden//2)
+
+        # Mid-level: Aggregate chunks with attention
+        mid_features, _ = self.mid_attention(
+            fine_features, fine_features, fine_features
+        )  # (batch, num_chunks, hidden//2)
+
+        # Semantic-level: Mean pooling + processing
+        semantic_pooled = mid_features.mean(dim=1)  # (batch, hidden//2)
+        semantic_features = self.semantic_processor(
+            semantic_pooled
+        )  # (batch, hidden//2)
+
+        # Also get mid-level summary
+        mid_pooled = mid_features.mean(dim=1)  # (batch, hidden//2)
+
+        # Global: Combine mid and semantic levels
+        global_input = torch.cat([mid_pooled, semantic_features], dim=-1)
+        confidence = self.global_processor(global_input)  # (batch, 1)
+
+        return confidence
+
+
+def build_hierarchical_network(
+    input_dim: int,
+    num_chunks: int = 16,
+    hidden_dim: int = 256,
+    dropout: float = 0.1,
+) -> nn.Module:
+    """Build hierarchical multi-scale probe network.
+
+    Processes hidden states at multiple levels of granularity:
+    fine-grained → mid-level → semantic → global.
+
+    This captures the hypothesis that uncertainty is encoded at different scales,
+    and that hierarchical processing can better extract these signals.
+
+    Args:
+        input_dim: Hidden state dimension (must be divisible by num_chunks).
+        num_chunks: Number of chunks to split hidden state into (default: 16).
+        hidden_dim: Hidden layer dimension for processing (default: 256).
+        dropout: Dropout probability (default: 0.1).
+
+    Returns:
+        Network that maps (batch, input_dim) -> (batch, 1).
+
+    Example:
+        >>> from src.probes import CalibratedProbe
+        >>> from src.probes.architectures import build_hierarchical_network
+        >>> network = build_hierarchical_network(input_dim=4096, num_chunks=16)
+        >>> probe = CalibratedProbe(network=network)
+        >>> probe.fit(X_train, y_train, X_val, y_val)
+    """
+    return HierarchicalNetwork(input_dim, num_chunks, hidden_dim, dropout)
+
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
@@ -655,6 +788,7 @@ __all__ = [
     "build_heteroscedastic_network",
     "build_bilinear_network",
     "build_contrastive_network",
+    "build_hierarchical_network",
     # Network classes (for customization)
     "ChunkedSelfAttention",
     "ResidualBlock",
@@ -664,4 +798,5 @@ __all__ = [
     "HeteroscedasticNetwork",
     "BilinearInteractionNetwork",
     "ContrastiveProbe",
+    "HierarchicalNetwork",
 ]
