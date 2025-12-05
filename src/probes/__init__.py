@@ -62,6 +62,7 @@ from .architectures import (
     build_sparse_network,
     build_heteroscedastic_network,
     build_bilinear_network,
+    build_contrastive_network
 )
 
 __all__ = [
@@ -73,6 +74,7 @@ __all__ = [
     "CalibratedProbe",
     "MLPProbe",
     "HierarchicalProbe",
+    "ContrastiveProbe",
     # Network builders
     "build_default_network",
     "build_attention_network",
@@ -83,4 +85,5 @@ __all__ = [
     "build_sparse_network",
     "build_heteroscedastic_network",
     "build_bilinear_network",
+    "build_contrastive_network",
 ]
