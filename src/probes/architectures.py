@@ -587,6 +587,44 @@ def build_bilinear_network(
     """
     return BilinearInteractionNetwork(input_dim, num_factors, hidden_dim, dropout)
 
+class ContrastiveProbe(nn.Module):
+    def __init__(self, input_dim, spurious_directions):
+        super().__init__()
+        self.linear = nn.Linear(input_dim, 1)
+        self.spurious_directions = spurious_directions  # (num_spurious, input_dim)
+    
+    def forward(self, x):
+        return torch.sigmoid(self.linear(x))
+    
+    def orthogonality_loss(self):
+        """Penalize overlap with spurious directions"""
+        w = self.linear.weight  # (1, input_dim)
+        overlaps = torch.matmul(w, self.spurious_directions.T)  # (1, num_spurious)
+        return torch.sum(overlaps ** 2)  # Want this to be zero
+    
+    def loss(self, predictions, labels):
+        bce = F.binary_cross_entropy(predictions, labels)
+        ortho = 0.1 * self.orthogonality_loss()
+        return bce + ortho
+    
+def build_contrastive_network(
+    input_dim: int,
+    spurious_directions: torch.Tensor,
+    dropout: float = 0.1,
+) -> nn.Module:
+    """
+    Build a contrastive probe that avoids projecting onto spurious directions.
+
+    Args:
+        input_dim: Feature dimension of hidden states.
+        spurious_directions: Tensor of shape (num_spurious, input_dim)
+                             representing directions the probe should avoid.
+        dropout: Dropout applied before the probe (optional).
+
+    Returns:
+        nn.Module implementing a contrastive probe with orthogonality regularization.
+    """
+
 
 # =============================================================================
 # EXPORTS
@@ -610,4 +648,5 @@ __all__ = [
     "TopKSparseNetwork",
     "HeteroscedasticNetwork",
     "BilinearInteractionNetwork",
+    "ContrastiveProbe",
 ]
