@@ -60,8 +60,14 @@ class TriviaQADataset(BaseDataset):
             "trivia_qa",
             self.subset,
             split=self.split,
-            trust_remote_code=True
+            trust_remote_code=True,
+            streaming=True
         )
+
+        if self.max_examples is not None:
+            dataset = list(dataset)[: self.max_examples]
+        else:
+            dataset = list(dataset)
         
         # Limit examples if specified
         if self.max_examples is not None:
