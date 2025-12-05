@@ -353,7 +353,15 @@ def build_gated_network(
 
 
 class TopKSparseNetwork(nn.Module):
-    """Network that selects top-k dimensions before processing."""
+    """Network that learns to weight dimensions by importance.
+
+    Uses a differentiable soft weighting mechanism during training,
+    with optional hard top-k selection at inference for interpretability.
+
+    Note: The original implementation using torch.topk had a bug where
+    importance weights couldn't learn (indices are non-differentiable).
+    This version uses soft attention weights that ARE differentiable.
+    """
 
     def __init__(
         self,
@@ -361,17 +369,20 @@ class TopKSparseNetwork(nn.Module):
         k: int = 256,
         hidden_dim: int = 128,
         dropout: float = 0.1,
+        temperature: float = 1.0,
     ):
         super().__init__()
+        self.input_dim = input_dim
         self.k = min(k, input_dim)
+        self.temperature = temperature
 
         # Learnable importance scores for each dimension
-        self.importance = nn.Parameter(torch.randn(input_dim))
+        self.importance = nn.Parameter(torch.zeros(input_dim))
 
-        # Process selected dimensions
+        # Process weighted dimensions (use full input_dim since we weight, not select)
         self.network = nn.Sequential(
             nn.Dropout(dropout),
-            nn.Linear(self.k, hidden_dim),
+            nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, 1),
@@ -379,13 +390,23 @@ class TopKSparseNetwork(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Get top-k dimension indices based on learned importance
+        # Soft weighting: sigmoid gives importance in [0, 1] for each dimension
+        # This is DIFFERENTIABLE, so importance weights can learn
+        weights = torch.sigmoid(self.importance / self.temperature)
+
+        # Weight the input dimensions
+        x_weighted = x * weights.unsqueeze(0)
+
+        return self.network(x_weighted)
+
+    def get_top_k_indices(self) -> torch.Tensor:
+        """Get indices of top-k most important dimensions (for interpretability)."""
         _, indices = torch.topk(self.importance, self.k)
+        return indices
 
-        # Select those dimensions
-        x_sparse = x[:, indices]
-
-        return self.network(x_sparse)
+    def get_importance_scores(self) -> torch.Tensor:
+        """Get importance scores for all dimensions."""
+        return torch.sigmoid(self.importance).detach()
 
 
 def build_sparse_network(
@@ -393,22 +414,24 @@ def build_sparse_network(
     k: int = 256,
     hidden_dim: int = 128,
     dropout: float = 0.1,
+    temperature: float = 1.0,
 ) -> nn.Module:
-    """Build sparse top-k probe network.
+    """Build sparse dimension-weighted probe network.
 
-    Learns which dimensions are most important for confidence prediction
-    and only uses those for the final prediction. More interpretable.
+    Learns importance weights for each dimension. Uses soft (differentiable)
+    weighting during training, with methods to extract top-k for interpretability.
 
     Args:
         input_dim: Hidden state dimension.
-        k: Number of dimensions to select.
+        k: Number of top dimensions to report for interpretability.
         hidden_dim: Hidden layer dimension.
         dropout: Dropout probability.
+        temperature: Temperature for importance sigmoid (lower = sharper selection).
 
     Returns:
         Network that maps (batch, input_dim) -> (batch, 1).
     """
-    return TopKSparseNetwork(input_dim, k, hidden_dim, dropout)
+    return TopKSparseNetwork(input_dim, k, hidden_dim, dropout, temperature)
 
 
 # =============================================================================

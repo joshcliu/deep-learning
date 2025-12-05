@@ -150,7 +150,8 @@ class CalibratedProbe(BaseProbe):
         y_val: Optional[ArrayLike] = None,
         batch_size: int = 64,
         num_epochs: int = 100,
-        patience: int = 10,
+        patience: Optional[int] = None,
+        use_scheduler: bool = True,
         verbose: bool = True,
     ) -> Dict[str, Any]:
         """Train probe with Brier score loss.
@@ -162,7 +163,8 @@ class CalibratedProbe(BaseProbe):
             y_val: Optional validation labels
             batch_size: Training batch size
             num_epochs: Maximum epochs
-            patience: Early stopping patience
+            patience: Early stopping patience. None disables early stopping.
+            use_scheduler: Whether to use cosine annealing LR scheduler.
             verbose: Print progress
 
         Returns:
@@ -186,7 +188,14 @@ class CalibratedProbe(BaseProbe):
             weight_decay=self.weight_decay
         )
 
-        history = {"train_loss": [], "val_loss": [], "train_brier": [], "val_brier": []}
+        # Learning rate scheduler for better convergence
+        scheduler = None
+        if use_scheduler:
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=num_epochs, eta_min=self.lr * 0.01
+            )
+
+        history = {"train_loss": [], "val_loss": [], "train_brier": [], "val_brier": [], "lr": []}
         best_val_loss = float("inf")
         best_state = None
         best_epoch = 0
@@ -213,6 +222,11 @@ class CalibratedProbe(BaseProbe):
             mean_train_loss = np.mean(train_losses)
             history["train_loss"].append(mean_train_loss)
             history["train_brier"].append(mean_train_loss)  # Brier = MSE for binary
+            history["lr"].append(optimizer.param_groups[0]["lr"])
+
+            # Step scheduler
+            if scheduler is not None:
+                scheduler.step()
 
             # Validation
             if X_val_t is not None:
@@ -227,7 +241,7 @@ class CalibratedProbe(BaseProbe):
 
                 if val_loss < best_val_loss - 1e-6:
                     best_val_loss = val_loss
-                    best_state = self.state_dict()
+                    best_state = {k: v.clone() for k, v in self.state_dict().items()}
                     best_epoch = epoch
                     # no_improve = 0
                 # else:
@@ -239,7 +253,7 @@ class CalibratedProbe(BaseProbe):
             else:
                 epoch_iter.set_postfix({"train_brier": f"{mean_train_loss:.4f}"})
 
-        # Restore best model
+        # Restore best model if we have validation data
         if best_state is not None:
             self.load_state_dict(best_state)
 
@@ -248,6 +262,7 @@ class CalibratedProbe(BaseProbe):
             "val_loss": history["val_loss"],
             "train_brier": history["train_brier"],
             "val_brier": history["val_brier"],
+            "lr": history["lr"],
             "best_epoch": best_epoch,
             "best_val_brier": best_val_loss,
         }
