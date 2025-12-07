@@ -774,6 +774,164 @@ def build_hierarchical_network(
 
 
 # =============================================================================
+# LAYER ENSEMBLE PROBE
+# =============================================================================
+
+
+class LayerEnsembleNetwork(nn.Module):
+    """Layer-wise ensemble probe.
+
+    Processes representations from multiple layers independently and learns
+    optimal weights to combine their predictions.
+
+    Inductive bias: Different layers encode complementary uncertainty signals.
+    Early layers may capture lexical/syntactic uncertainty, while deeper layers
+    capture semantic/task-specific confidence.
+
+    Args:
+        input_dim: Total input dimension (num_layers * hidden_dim per layer)
+        num_layers: Number of layers to ensemble
+        hidden_dim_per_layer: Hidden dimension from each layer
+        layer_probe_hidden: Hidden dimension for per-layer probes (None = linear)
+        dropout: Dropout probability
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        num_layers: int = 4,
+        hidden_dim_per_layer: int = None,
+        layer_probe_hidden: int = 64,
+        dropout: float = 0.1,
+    ):
+        super().__init__()
+
+        self.num_layers = num_layers
+
+        # Auto-detect hidden_dim_per_layer from input_dim if not provided
+        if hidden_dim_per_layer is None:
+            assert input_dim % num_layers == 0, \
+                f"input_dim {input_dim} must be divisible by num_layers {num_layers}"
+            hidden_dim_per_layer = input_dim // num_layers
+
+        self.hidden_dim_per_layer = hidden_dim_per_layer
+
+        # Per-layer lightweight probes
+        self.layer_probes = nn.ModuleList()
+        for _ in range(num_layers):
+            if layer_probe_hidden is None:
+                # Linear probe for this layer
+                probe = nn.Sequential(
+                    nn.Dropout(dropout),
+                    nn.Linear(hidden_dim_per_layer, 1),
+                )
+            else:
+                # MLP probe for this layer
+                probe = nn.Sequential(
+                    nn.Linear(hidden_dim_per_layer, layer_probe_hidden),
+                    nn.ReLU(),
+                    nn.Dropout(dropout),
+                    nn.Linear(layer_probe_hidden, 1),
+                )
+            self.layer_probes.append(probe)
+
+        # Learnable ensemble weights (initialized uniformly)
+        self.ensemble_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass.
+
+        Args:
+            x: Input tensor of shape (batch, num_layers * hidden_dim_per_layer)
+               OR (batch, num_layers, hidden_dim_per_layer)
+
+        Returns:
+            Confidence scores of shape (batch, 1)
+        """
+        batch_size = x.shape[0]
+
+        # Reshape if needed: (batch, num_layers * hidden) -> (batch, num_layers, hidden)
+        if x.dim() == 2:
+            x = x.view(batch_size, self.num_layers, self.hidden_dim_per_layer)
+
+        # Get prediction from each layer
+        layer_logits = []
+        for i in range(self.num_layers):
+            layer_input = x[:, i, :]  # (batch, hidden_dim_per_layer)
+            logit = self.layer_probes[i](layer_input)  # (batch, 1)
+            layer_logits.append(logit)
+
+        # Stack: (batch, num_layers, 1)
+        layer_logits = torch.stack(layer_logits, dim=1)
+
+        # Normalize weights with softmax (ensure they sum to 1)
+        weights = torch.softmax(self.ensemble_weights, dim=0)  # (num_layers,)
+
+        # Weighted average: (batch, num_layers, 1) * (num_layers,) -> (batch, 1)
+        weighted_logits = (layer_logits * weights.view(1, -1, 1)).sum(dim=1)
+
+        # Apply sigmoid to get confidence
+        confidence = torch.sigmoid(weighted_logits)
+
+        return confidence
+
+    def get_layer_weights(self) -> torch.Tensor:
+        """Get learned ensemble weights (after softmax).
+
+        Returns:
+            Normalized weights of shape (num_layers,)
+        """
+        with torch.no_grad():
+            return torch.softmax(self.ensemble_weights, dim=0).cpu()
+
+
+def build_layer_ensemble_network(
+    input_dim: int,
+    num_layers: int = 4,
+    hidden_dim_per_layer: int = None,
+    layer_probe_hidden: int = 64,
+    dropout: float = 0.1,
+) -> nn.Module:
+    """Build layer-ensemble probe network.
+
+    Creates an ensemble of lightweight probes, one per layer, with learned
+    combination weights. Useful when hidden states are extracted from multiple
+    transformer layers.
+
+    Args:
+        input_dim: Total input dimension (num_layers * hidden_dim_per_layer)
+        num_layers: Number of layers to ensemble (default: 4)
+        hidden_dim_per_layer: Hidden dimension from each layer (auto-detected if None)
+        layer_probe_hidden: Hidden dim for per-layer probes (None = linear, else MLP)
+        dropout: Dropout probability
+
+    Returns:
+        LayerEnsembleNetwork instance
+
+    Example:
+        >>> # Extract from 4 layers: [7, 14, 21, 27]
+        >>> # Each layer has 3584 dims, so input_dim = 4 * 3584 = 14336
+        >>> network = build_layer_ensemble_network(
+        ...     input_dim=14336,
+        ...     num_layers=4,
+        ...     layer_probe_hidden=64
+        ... )
+        >>> probe = CalibratedProbe(network=network)
+        >>> probe.fit(X_train, y_train, X_val, y_val)
+        >>>
+        >>> # Check learned weights
+        >>> weights = probe.network.get_layer_weights()
+        >>> print(f"Layer 7: {weights[0]:.3f}")
+        >>> print(f"Layer 14: {weights[1]:.3f}")
+        >>> print(f"Layer 21: {weights[2]:.3f}")
+        >>> print(f"Layer 27: {weights[3]:.3f}")
+    """
+    return LayerEnsembleNetwork(
+        input_dim, num_layers, hidden_dim_per_layer, layer_probe_hidden, dropout
+    )
+
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
@@ -789,6 +947,7 @@ __all__ = [
     "build_bilinear_network",
     "build_contrastive_network",
     "build_hierarchical_network",
+    "build_layer_ensemble_network",
     # Network classes (for customization)
     "ChunkedSelfAttention",
     "ResidualBlock",
@@ -799,4 +958,5 @@ __all__ = [
     "BilinearInteractionNetwork",
     "ContrastiveProbe",
     "HierarchicalNetwork",
+    "LayerEnsembleNetwork",
 ]
