@@ -72,6 +72,7 @@ from .architectures import (
     build_contrastive_network,
     ContrastiveProbe,
     build_hierarchical_network,
+    build_layer_ensemble_network,
 )
 
 __all__ = [
@@ -95,4 +96,5 @@ __all__ = [
     "build_bilinear_network",
     "build_contrastive_network",
     "build_hierarchical_network",
+    "build_layer_ensemble_network",
 ]
