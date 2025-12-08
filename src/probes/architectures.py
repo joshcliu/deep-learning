@@ -1125,6 +1125,275 @@ def build_sparse_attention_multihead_network(
 
 
 # =============================================================================
+# MULTI-SOURCE CONFIDENCE PREDICTOR
+# =============================================================================
+# Combines hidden states from multiple layers WITH output logits
+# to predict the model's true confidence level.
+
+
+class MultiSourceConfidenceNetwork(nn.Module):
+    """Multi-source confidence predictor combining hidden states and logits.
+
+    This architecture addresses a key insight: the model's internal uncertainty
+    (encoded in hidden states) may differ from its expressed confidence (logits).
+    By combining both sources, the probe can detect miscalibration.
+
+    Architecture:
+    1. Process each layer's hidden state with a lightweight probe
+    2. Extract features from output logits (prob, entropy, margin)
+    3. Combine layer predictions with logit features
+    4. Predict final confidence score
+
+    Inputs:
+        - hidden_states: (batch, num_layers, hidden_dim) from k quartile layers
+        - logits: (batch, num_choices) raw logits for answer choices (optional)
+
+    The probe learns to detect:
+        - Overconfidence: high logits but uncertain hidden states
+        - Underconfidence: low logits but confident hidden states
+        - Well-calibrated: agreement between sources
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_layers: int = 4,
+        num_choices: int = 4,
+        layer_probe_dim: int = 64,
+        fusion_dim: int = 128,
+        use_logits: bool = True,
+        dropout: float = 0.1,
+    ):
+        super().__init__()
+
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.num_choices = num_choices
+        self.use_logits = use_logits
+
+        # === PER-LAYER PROBES ===
+        # Each layer gets its own lightweight probe
+        self.layer_probes = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(hidden_dim, layer_probe_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(layer_probe_dim, layer_probe_dim // 2),
+            )
+            for _ in range(num_layers)
+        ])
+
+        # === LOGIT FEATURE EXTRACTOR ===
+        # Extract meaningful features from output logits
+        if use_logits:
+            # Input: raw logits (num_choices) -> features
+            # Features: softmax probs, entropy, top-2 margin, max prob
+            logit_feature_dim = num_choices + 3  # probs + entropy + margin + max_prob
+            self.logit_processor = nn.Sequential(
+                nn.Linear(logit_feature_dim, layer_probe_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(layer_probe_dim, layer_probe_dim // 2),
+            )
+        else:
+            logit_feature_dim = 0
+
+        # === CROSS-LAYER ATTENTION ===
+        # Let layers attend to each other
+        self.layer_attention = nn.MultiheadAttention(
+            embed_dim=layer_probe_dim // 2,
+            num_heads=2,
+            dropout=dropout,
+            batch_first=True,
+        )
+
+        # === FUSION NETWORK ===
+        # Combine layer features with logit features
+        layer_output_dim = layer_probe_dim // 2
+        fusion_input_dim = layer_output_dim + (layer_probe_dim // 2 if use_logits else 0)
+
+        self.fusion = nn.Sequential(
+            nn.Linear(fusion_input_dim, fusion_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(fusion_dim, fusion_dim // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(fusion_dim // 2, 1),
+            nn.Sigmoid(),
+        )
+
+        # === LEARNABLE LAYER WEIGHTS ===
+        self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
+
+    def _extract_logit_features(self, logits: torch.Tensor) -> torch.Tensor:
+        """Extract meaningful features from raw logits.
+
+        Features:
+        - Softmax probabilities (num_choices values)
+        - Entropy of distribution (1 value) - higher = more uncertain
+        - Margin between top-2 (1 value) - higher = more confident
+        - Max probability (1 value) - the "expressed" confidence
+        """
+        probs = torch.softmax(logits, dim=-1)
+
+        # Entropy: -sum(p * log(p))
+        entropy = -torch.sum(probs * torch.log(probs + 1e-10), dim=-1, keepdim=True)
+
+        # Normalize entropy by max possible (log(num_choices))
+        max_entropy = torch.log(torch.tensor(self.num_choices, dtype=torch.float32, device=logits.device))
+        entropy = entropy / max_entropy
+
+        # Top-2 margin
+        top2 = torch.topk(probs, k=2, dim=-1).values
+        margin = (top2[:, 0] - top2[:, 1]).unsqueeze(-1)
+
+        # Max probability
+        max_prob = probs.max(dim=-1, keepdim=True).values
+
+        # Concatenate all features
+        features = torch.cat([probs, entropy, margin, max_prob], dim=-1)
+        return features
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        logits: torch.Tensor = None,
+    ) -> torch.Tensor:
+        """Forward pass.
+
+        For use with CalibratedProbe, input should be a single concatenated tensor:
+            x: (batch, num_layers * hidden_dim + num_choices) if use_logits=True
+            x: (batch, num_layers * hidden_dim) if use_logits=False
+
+        For direct use, can also pass hidden_states and logits separately:
+            x: (batch, num_layers, hidden_dim) hidden states
+            logits: (batch, num_choices) raw output logits
+
+        Returns:
+            Confidence scores of shape (batch, 1)
+        """
+        batch_size = x.shape[0]
+
+        # Handle different input formats
+        if logits is not None:
+            # Separate hidden_states and logits provided
+            hidden_states = x
+            if hidden_states.dim() == 2:
+                hidden_states = hidden_states.view(batch_size, self.num_layers, self.hidden_dim)
+        elif x.dim() == 2 and self.use_logits:
+            # Single concatenated tensor: split into hidden_states and logits
+            expected_hidden_size = self.num_layers * self.hidden_dim
+            hidden_states = x[:, :expected_hidden_size].view(batch_size, self.num_layers, self.hidden_dim)
+            logits = x[:, expected_hidden_size:]
+        elif x.dim() == 2:
+            # Flattened hidden states only
+            hidden_states = x.view(batch_size, self.num_layers, self.hidden_dim)
+        else:
+            # Already shaped as (batch, num_layers, hidden_dim)
+            hidden_states = x
+
+        # === PROCESS EACH LAYER ===
+        layer_features = []
+        for i in range(self.num_layers):
+            layer_input = hidden_states[:, i, :]
+            layer_feat = self.layer_probes[i](layer_input)
+            layer_features.append(layer_feat)
+
+        # Stack: (batch, num_layers, layer_probe_dim//2)
+        layer_features = torch.stack(layer_features, dim=1)
+
+        # === CROSS-LAYER ATTENTION ===
+        attended_features, _ = self.layer_attention(
+            layer_features, layer_features, layer_features
+        )
+
+        # Weighted combination of layers
+        weights = torch.softmax(self.layer_weights, dim=0)
+        hidden_summary = (attended_features * weights.view(1, -1, 1)).sum(dim=1)
+
+        # === PROCESS LOGITS ===
+        if self.use_logits and logits is not None:
+            logit_features = self._extract_logit_features(logits)
+            logit_processed = self.logit_processor(logit_features)
+
+            # Concatenate hidden summary with logit features
+            fusion_input = torch.cat([hidden_summary, logit_processed], dim=-1)
+        else:
+            fusion_input = hidden_summary
+
+        # === FINAL PREDICTION ===
+        confidence = self.fusion(fusion_input)
+
+        return confidence
+
+    def get_layer_weights(self) -> torch.Tensor:
+        """Get learned layer importance weights."""
+        with torch.no_grad():
+            return torch.softmax(self.layer_weights, dim=0).cpu()
+
+
+def build_multi_source_network(
+    hidden_dim: int,
+    num_layers: int = 4,
+    num_choices: int = 4,
+    layer_probe_dim: int = 64,
+    fusion_dim: int = 128,
+    use_logits: bool = True,
+    dropout: float = 0.1,
+) -> nn.Module:
+    """Build multi-source confidence prediction network.
+
+    Combines hidden states from multiple layers with output logits to predict
+    the model's true confidence level. This can detect miscalibration by
+    comparing internal uncertainty signals with expressed confidence.
+
+    Args:
+        hidden_dim: Dimension of hidden states from each layer.
+        num_layers: Number of layers to use (e.g., 4 for quartiles).
+        num_choices: Number of answer choices (e.g., 4 for MCQA).
+        layer_probe_dim: Hidden dimension for per-layer probes.
+        fusion_dim: Hidden dimension for fusion network.
+        use_logits: Whether to include output logits as input.
+        dropout: Dropout probability.
+
+    Returns:
+        MultiSourceConfidenceNetwork instance.
+
+    Example:
+        >>> # Extract from 4 quartile layers
+        >>> layers = [7, 14, 21, 27]  # For 28-layer model
+        >>> hidden_states = extractor.extract(prompts, layers=layers)
+        >>> # hidden_states shape: (batch, 4, 3584)
+        >>>
+        >>> # Get logits during extraction
+        >>> logits = model(inputs).logits[:, -1, answer_tokens]
+        >>> # logits shape: (batch, 4)
+        >>>
+        >>> # Build and train probe
+        >>> network = build_multi_source_network(
+        ...     hidden_dim=3584,
+        ...     num_layers=4,
+        ...     num_choices=4,
+        ...     use_logits=True
+        ... )
+        >>> probe = CalibratedProbe(network=network)
+        >>>
+        >>> # Forward pass needs both hidden states and logits
+        >>> confidence = network(hidden_states, logits)
+    """
+    return MultiSourceConfidenceNetwork(
+        hidden_dim=hidden_dim,
+        num_layers=num_layers,
+        num_choices=num_choices,
+        layer_probe_dim=layer_probe_dim,
+        fusion_dim=fusion_dim,
+        use_logits=use_logits,
+        dropout=dropout,
+    )
+
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 

@@ -20,6 +20,7 @@ Novel architectures (via CalibratedProbe + custom network):
 - HeteroscedasticProbe: Per-example uncertainty estimation
 - BilinearProbe: Explicit feature interactions
 - HierarchicalProbe: Multi-scale hierarchical processing (fine → coarse → global)
+- MultiSourceConfidenceNetwork: Combines k quartile hidden layers + logits for confidence
 
 Usage:
     from src.probes import LinearProbe, CalibratedProbe, MLPProbe, HierarchicalProbe
@@ -52,6 +53,16 @@ Usage:
     h_probe = HierarchicalProbe(input_dim=4096, hidden_dim=512)
     h_probe.fit(X_train, y_train, X_val, y_val)
     h_confidences = h_probe.predict(X_test)
+
+    # Multi-source: combines k quartile hidden layers + logits
+    from src.probes.architectures import build_multi_source_network
+    network = build_multi_source_network(
+        hidden_dim=4096,      # Per-layer hidden dim
+        num_layers=4,         # Number of quartile layers
+        num_choices=4,        # Number of answer choices (for logits)
+        use_logits=True,      # Include logit features
+    )
+    # Note: Input shape is (batch, num_layers * hidden_dim + num_choices)
 """
 
 from .base import BaseProbe, ArrayLike
@@ -75,6 +86,8 @@ from .architectures import (
     build_layer_ensemble_network,
     build_sparse_attention_multihead_network,
     SparseAttentionMultiHeadNetwork,
+    build_multi_source_network,
+    MultiSourceConfidenceNetwork,
 )
 
 __all__ = [
@@ -100,4 +113,6 @@ __all__ = [
     "build_hierarchical_network",
     "build_layer_ensemble_network",
     "build_sparse_attention_multihead_network",
+    "build_multi_source_network",
+    "MultiSourceConfidenceNetwork",
 ]

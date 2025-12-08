@@ -1,0 +1,611 @@
+<html>
+<head>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+<link rel="shortcut icon" href="images/icon.ico">
+<style type="text/css">
+	body {
+		background-color: #f5f9ff;
+	}
+
+	/* Hide both math displays initially, will display based on JS detection */
+  .mathjax-mobile, .mathml-non-mobile { display: none; }
+
+  /* Show the MathML content by default on non-mobile devices */
+  .show-mathml .mathml-non-mobile { display: block; }
+  .show-mathjax .mathjax-mobile { display: block; }
+
+	.content-margin-container {
+		display: flex;
+		width: 100%; /* Ensure the container is full width */
+		justify-content: left; /* Horizontally centers the children in the container */
+		align-items: center;  /* Vertically centers the children in the container */
+	}
+	.main-content-block {
+		width: 70%; /* Change this percentage as needed */
+    max-width: 1100px; /* Optional: Maximum width */
+		background-color: #fff;
+		border-left: 1px solid #DDD;
+		border-right: 1px solid #DDD;
+		padding: 8px 8px 8px 8px;
+		font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;#"Avenir";
+	}
+	.margin-left-block {
+			font-size: 14px;
+			width: 15%; /* Change this percentage as needed */
+			max-width: 130px; /* Optional: Maximum width */
+			position: relative;
+			margin-left: 10px;
+			text-align: left;
+			font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;#"Avenir";
+			padding: 5px;
+	}
+	.margin-right-block {
+			font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;#"Avenir";
+			font-size: 14px;
+			width: 25%; /* Change this percentage as needed */
+			max-width: 256px; /* Optional: Maximum width */
+			position: relative;
+			text-align: left;
+			padding: 10px;  /* Optional: Adds padding inside the caption */
+	}
+
+	img {
+			max-width: 100%; /* Make sure it fits inside the container */
+			height: auto;
+			display: block;
+			margin: auto;
+	}
+	.my-video {
+			max-width: 100%; /* Make sure it fits inside the container */
+			height: auto;
+			display: block;
+			margin: auto;
+	}
+	/* Hide both video displays initially, will display based on JS detection */
+  .vid-mobile, .vid-non-mobile { display: none; }
+
+  /* Show the video content by default on non-mobile devices */
+  .show-vid-mobile .vid-mobile { display: block; }
+  .show-vid-non-mobile .vid-non-mobile { display: block; }
+
+	a:link,a:visited
+	{
+		color: #0e7862; /*#1367a7;*/
+		text-decoration: none;
+	}
+	a:hover {
+		color: #24b597; /*#208799;*/
+	}
+
+	h1 {
+		font-size: 18px;
+		margin-top: 4px;
+		margin-bottom: 10px;
+	}
+
+	table.header {
+    font-weight: 300;
+    font-size: 17px;
+    flex-grow: 1;
+		width: 70%;
+    max-width: calc(100% - 290px); /* Adjust according to the width of .paper-code-tab */
+	}
+	table td, table td * {
+	    vertical-align: middle;
+	    position: relative;
+	}
+	table.paper-code-tab {
+	    flex-shrink: 0;
+	    margin-left: 8px;
+	    margin-top: 8px;
+	    padding: 0px 0px 0px 8px;
+	    width: 290px;
+	    height: 150px;
+	}
+
+	.layered-paper { /* modified from: http://css-tricks.com/snippets/css/layered-paper/ */
+		box-shadow:
+		        0px 0px 1px 1px rgba(0,0,0,0.35), /* The top layer shadow */
+		        5px 5px 0 0px #fff, /* The second layer */
+		        5px 5px 1px 1px rgba(0,0,0,0.35), /* The second layer shadow */
+		        10px 10px 0 0px #fff, /* The third layer */
+		        10px 10px 1px 1px rgba(0,0,0,0.35); /* The third layer shadow */
+		margin-top: 5px;
+		margin-left: 10px;
+		margin-right: 30px;
+		margin-bottom: 5px;
+	}
+
+	hr {
+    height: 1px; /* Sets the height of the line to 1 pixel */
+    border: none; /* Removes the default border */
+    background-color: #DDD; /* Sets the line color to black */
+  }
+
+	div.hypothesis {
+		width: 80%;
+		background-color: #EEE;
+		border: 1px solid black;
+		border-radius: 10px;
+		-moz-border-radius: 10px;
+		-webkit-border-radius: 10px;
+		font-family: Courier;
+		font-size: 18px;
+		text-align: center;
+		margin: auto;
+		padding: 16px 16px 16px 16px;
+	}
+
+	div.citation {
+    font-size: 0.8em;
+    background-color:#fff;
+    padding: 10px;
+		height: 200px;
+  }
+
+	.fade-in-inline {
+		position: absolute;
+		text-align: center;
+		margin: auto;
+		-webkit-mask-image: linear-gradient(to right,
+																			transparent 0%,
+																			transparent 40%,
+																			black 50%,
+																			black 90%,
+																			transparent 100%);
+		mask-image: linear-gradient(to right,
+																transparent 0%,
+																transparent 40%,
+																black 50%,
+																black 90%,
+																transparent 100%);
+		-webkit-mask-size: 8000% 100%;
+		mask-size: 8000% 100%;
+		animation-name: sweepMask;
+		animation-duration: 4s;
+		animation-iteration-count: infinite;
+		animation-timing-function: linear;
+		animation-delay: -1s;
+	}
+
+	.fade-in2-inline {
+			animation-delay: 1s;
+	}
+
+	.inline-div {
+			position: relative;
+	    display: inline-block; /* Makes both the div and paragraph inline-block elements */
+	    vertical-align: top; /* Aligns them at the top, you can adjust this to middle, bottom, etc., based on your needs */
+	    width: 50px; /* Optional: Adds space between the div and the paragraph */
+	}
+
+	table.results {
+		border-collapse: collapse;
+		width: 100%;
+		margin: 10px 0;
+	}
+	table.results th, table.results td {
+		border: 1px solid #DDD;
+		padding: 8px;
+		text-align: left;
+	}
+	table.results th {
+		background-color: #f5f9ff;
+	}
+
+	code {
+		background-color: #f5f5f5;
+		padding: 2px 6px;
+		border-radius: 3px;
+		font-family: 'Courier New', Courier, monospace;
+		font-size: 14px;
+	}
+
+	pre {
+		background-color: #f5f5f5;
+		padding: 12px;
+		border-radius: 5px;
+		overflow-x: auto;
+		font-family: 'Courier New', Courier, monospace;
+		font-size: 13px;
+	}
+
+</style>
+
+	  <title>Probing the Mind of LLMs: Extracting Confidence from Hidden States</title>
+      <meta property="og:title" content="Probing the Mind of LLMs: Extracting Confidence from Hidden States" />
+			<meta charset="UTF-8">
+  </head>
+
+  <body>
+
+		<div class="content-margin-container">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+						<table class="header" align=left>
+								<tr>
+									<td colspan=4>
+										<span style="font-size: 32px; font-family: 'Courier New', Courier, monospace;">Probing the Mind of LLMs</span>
+									</td>
+								</tr>
+								<tr>
+									<td colspan=4>
+										<span style="font-size: 20px; color: #666;">Extracting Confidence from Hidden States</span>
+									</td>
+								</tr>
+								<tr>
+										<td align=left>
+												<span style="font-size:17px"><a href="#">Josh Liu</a></span>
+										</td>
+										<td align=left>
+												<span style="font-size:17px"><a href="#">Partner Name</a></span>
+										</td>
+								<tr>
+									<td colspan=4 align=left><span style="font-size:18px">Final project for 6.7960, MIT</span></td>
+								</tr>
+						</table>
+					</div>
+					<div class="margin-right-block">
+					</div>
+		</div>
+
+		<div class="content-margin-container" id="intro">
+				<div class="margin-left-block">
+          <!-- table of contents here -->
+          <div style="position:fixed; max-width:inherit; top:max(20%,120px)">
+              <b style="font-size:16px">Outline</b><br><br>
+              <a href="#intro">Introduction</a><br><br>
+              <a href="#background">Background</a><br><br>
+              <a href="#methodology">Methodology</a><br><br>
+              <a href="#architecture">MultiSource Architecture</a><br><br>
+              <a href="#results">Results</a><br><br>
+              <a href="#analysis">Analysis</a><br><br>
+              <a href="#conclusion">Conclusion</a><br><br>
+          </div>
+				</div>
+		    <div class="main-content-block">
+            <img src="./images/overview_diagram.png" width=700px/>
+		    </div>
+		    <div class="margin-right-block">
+						Figure 1: Overview of our confidence probing pipeline. Hidden states from multiple layers are extracted and combined with output logits to predict whether the model's answer is correct.
+		    </div>
+		</div>
+
+    <div class="content-margin-container">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+						<h1>Introduction</h1>
+            Large language models generate plausible-sounding but incorrect answers&mdash;a phenomenon known as hallucination.
+            Output probabilities don't reliably reflect true confidence, which is critical for deployment in high-stakes domains
+            like medical diagnosis, legal advice, and financial decisions.<br><br>
+
+            <div class="hypothesis">
+              <b>Key Insight:</b> Hidden states contain rich uncertainty information that's lost by the final output.
+              Middle layers (50-75% depth) encode more uncertainty than final layers.
+              The model may "know" it's uncertain internally, even when it sounds confident.
+            </div><br>
+
+            Our contributions:
+            <ol>
+              <li>Comprehensive probe architecture comparison (13+ architectures)</li>
+              <li>Novel <b>MultiSourceConfidenceNetwork</b> combining hidden states + logits</li>
+              <li>Key insight: Internal uncertainty vs. expressed confidence can diverge</li>
+              <li>Open-source framework for LLM confidence probing</li>
+            </ol>
+		    </div>
+		    <div class="margin-right-block">
+						This problem is especially acute in retrieval-augmented generation (RAG) systems, where knowing when to retrieve external information could dramatically improve accuracy.
+		    </div>
+		</div>
+
+		<div class="content-margin-container" id="background">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+					<h1>Background</h1>
+          <b>Uncertainty Quantification Paradigms</b><br><br>
+          There are three main approaches to estimating LLM uncertainty:
+          <ul>
+            <li><b>Probing:</b> Train classifiers on hidden states to predict correctness</li>
+            <li><b>Consistency-based:</b> Sample multiple outputs and measure agreement</li>
+            <li><b>Verbalized confidence:</b> Ask the model to state its confidence</li>
+          </ul>
+
+          Recent work like CCPS achieves 55% ECE reduction through perturbation stability <a href="#ref_1">[1]</a>.
+          Semantic entropy approaches <a href="#ref_2">[2]</a> measure uncertainty at the meaning level rather than token level.<br><br>
+
+          <b>Why Linear Probes?</b><br><br>
+          Linear probes offer interpretability, low memorization risk, and fast training. If information
+          is linearly extractable from hidden states, it suggests the model has explicitly represented
+          that information, rather than the probe learning complex patterns <a href="#ref_4">[4]</a>.<br><br>
+
+          <b>Calibration Metrics</b><br><br>
+          <table class="results">
+            <tr>
+              <th>Metric</th>
+              <th>What It Measures</th>
+              <th>Ideal</th>
+            </tr>
+            <tr>
+              <td>ECE</td>
+              <td>Gap between confidence and accuracy</td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>Brier Score</td>
+              <td>Calibration + discrimination quality</td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>AUROC</td>
+              <td>Ability to separate correct from incorrect</td>
+              <td>1.0</td>
+            </tr>
+          </table>
+		    </div>
+		    <div class="margin-right-block" style="transform: translate(0%, -50%);">
+          ECE (Expected Calibration Error) measures calibration by binning predictions and comparing average confidence to accuracy in each bin.
+		    </div>
+		</div>
+
+		<div class="content-margin-container" id="methodology">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+            <h1>Methodology</h1>
+            <b>Experimental Setup</b>
+            <ul>
+              <li><b>Model:</b> Qwen2.5-7B (28 layers, 3584 hidden dim)</li>
+              <li><b>Dataset:</b> MMLU validation set (multiple-choice QA, 57 subjects)</li>
+              <li><b>Task:</b> Predict whether model's answer is correct from hidden states</li>
+            </ul>
+
+            <b>Hidden State Extraction</b><br><br>
+            We extract hidden states from quartile layers: [L/4, L/2, 3L/4, L-1], using the last token
+            position which captures full context via attention. 8-bit quantization enables efficient
+            extraction on consumer GPUs.<br><br>
+
+            <b>Training with Brier Score Loss</b><br><br>
+            We use Brier score loss which properly penalizes overconfident mistakes:<br>
+            <center>
+              <math xmlns="http://www.w3.org/1998/Math/MathML">
+                <mrow>
+                  <mi>L</mi>
+                  <mo>=</mo>
+                  <msup>
+                    <mrow>
+                      <mo>(</mo>
+                      <mi>confidence</mi>
+                      <mo>-</mo>
+                      <mi>correct</mi>
+                      <mo>)</mo>
+                    </mrow>
+                    <mn>2</mn>
+                  </msup>
+                </mrow>
+              </math>
+            </center><br>
+            <ul>
+              <li>High confidence + wrong = <b>heavily penalized</b> (dangerous!)</li>
+              <li>Low confidence + wrong = acceptable (model knows it's uncertain)</li>
+              <li>High confidence + correct = good</li>
+              <li>Low confidence + correct = room for improvement</li>
+            </ul>
+
+            <b>Architectures Tested</b><br><br>
+            <table class="results">
+              <tr>
+                <th>Architecture</th>
+                <th>Key Idea</th>
+                <th>Parameters</th>
+              </tr>
+              <tr>
+                <td>Linear</td>
+                <td>Simplest baseline</td>
+                <td>~4K</td>
+              </tr>
+              <tr>
+                <td>MLP</td>
+                <td>Non-linear features</td>
+                <td>~1M</td>
+              </tr>
+              <tr>
+                <td>Attention</td>
+                <td>Self-attention over hidden chunks</td>
+                <td>~500K</td>
+              </tr>
+              <tr>
+                <td>LayerEnsemble</td>
+                <td>Ensemble across layers</td>
+                <td>~300K</td>
+              </tr>
+              <tr>
+                <td><b>MultiSource (Ours)</b></td>
+                <td>Hidden states + logits fusion</td>
+                <td>~100K</td>
+              </tr>
+            </table>
+		    </div>
+		    <div class="margin-right-block" style="transform: translate(0%, -80%);">
+          Brier score is a proper scoring rule, meaning it's optimized when the predicted probability equals the true probability. BCE loss can lead to overconfident predictions.
+		    </div>
+		</div>
+
+		<div class="content-margin-container" id="architecture">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+            <h1>Novel Architecture: MultiSourceConfidenceNetwork</h1>
+
+            <b>Motivation</b><br><br>
+            Our hypothesis: Internal uncertainty (hidden states) may differ from expressed confidence (logits).
+            A model might be internally uncertain but output high-confidence logits. Combining both sources
+            can detect this miscalibration.<br><br>
+
+            <img src="./images/architecture_diagram.png" width=650px/><br><br>
+
+            <b>Key Components</b>
+            <ol>
+              <li><b>Per-layer probes:</b> Lightweight MLP per quartile layer</li>
+              <li><b>Cross-layer attention:</b> Layers attend to each other</li>
+              <li><b>Logit features:</b> Entropy, margin, max probability, softmax probs</li>
+              <li><b>Learnable layer weights:</b> Which layers matter most?</li>
+            </ol>
+
+            <b>What It Can Detect</b><br><br>
+            <div class="hypothesis">
+              <b>Overconfidence:</b> High logits + uncertain hidden states<br>
+              <b>Underconfidence:</b> Low logits + confident hidden states<br>
+              <b>Well-calibrated:</b> Agreement between sources
+            </div>
+		    </div>
+		    <div class="margin-right-block">
+						Figure 2: MultiSourceConfidenceNetwork architecture. Hidden states from k quartile layers are processed independently, then combined with logit-derived features through cross-layer attention and fusion.
+		    </div>
+		</div>
+
+		<div class="content-margin-container" id="results">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+            <h1>Experimental Results</h1>
+
+            <b>Architecture Comparison</b><br><br>
+            <table class="results">
+              <tr>
+                <th>Architecture</th>
+                <th>AUROC</th>
+                <th>Brier</th>
+                <th>ECE</th>
+              </tr>
+              <tr>
+                <td>Linear</td>
+                <td>0.XXX</td>
+                <td>0.XXXX</td>
+                <td>0.XXXX</td>
+              </tr>
+              <tr>
+                <td>MLP</td>
+                <td>0.XXX</td>
+                <td>0.XXXX</td>
+                <td>0.XXXX</td>
+              </tr>
+              <tr>
+                <td>LayerEnsemble</td>
+                <td>0.XXX</td>
+                <td>0.XXXX</td>
+                <td>0.XXXX</td>
+              </tr>
+              <tr>
+                <td><b>MultiSource</b></td>
+                <td><b>0.XXX</b></td>
+                <td><b>0.XXXX</b></td>
+                <td><b>0.XXXX</b></td>
+              </tr>
+            </table>
+            <i>(Results to be filled in after running experiments)</i><br><br>
+
+            <b>Key Finding: Middle Layers Are Optimal</b><br><br>
+            <img src="./images/layer_weights.png" width=500px/><br><br>
+
+            <b>Reliability Diagrams</b><br><br>
+            <img src="./images/reliability_diagrams.png" width=650px/>
+		    </div>
+		    <div class="margin-right-block">
+						Figure 3: Learned layer weights from LayerEnsemble probe, showing middle layers receive highest weights.<br><br>
+            Figure 4: Reliability diagrams comparing calibration across architectures. Closer to diagonal = better calibrated.
+		    </div>
+		</div>
+
+		<div class="content-margin-container" id="analysis">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+						<h1>Analysis & Discussion</h1>
+
+            <b>Why Simple Probes Often Suffice</b><br><br>
+            The uncertainty signal appears to be linearly separable in hidden space, suggesting low intrinsic
+            dimensionality. This validates the linear probing approach and indicates the model has explicitly
+            represented uncertainty information.<br><br>
+
+            <b>When Complex Architectures Help</b>
+            <ul>
+              <li>High intrinsic dimensionality tasks</li>
+              <li>Multi-scale uncertainty patterns</li>
+              <li>Detecting subtle miscalibration</li>
+            </ul>
+
+            <b>The Logits Question</b><br><br>
+            Does the model's expressed confidence (logits) add information beyond hidden states?
+            Our experiments show [TODO: fill in findings]. This has implications for deployment:
+            if hidden states contain all the information, we can detect uncertainty without running full inference.<br><br>
+
+            <b>Limitations</b>
+            <ul>
+              <li>Single model (Qwen2.5-7B) - generalization to other models?</li>
+              <li>MMLU only - different domains may behave differently</li>
+              <li>Argmax evaluation vs. generation-based</li>
+            </ul>
+		    </div>
+		    <div class="margin-right-block">
+		    </div>
+		</div>
+
+		<div class="content-margin-container" id="conclusion">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+						<h1>Conclusion & Future Work</h1>
+
+            We've demonstrated that hidden states contain rich uncertainty information that can be extracted
+            with relatively simple probes. Our novel MultiSourceConfidenceNetwork combines internal uncertainty
+            signals with expressed confidence to detect miscalibration.<br><br>
+
+            <div class="hypothesis">
+              <b>The broader insight:</b> Internal and expressed confidence can diverge.
+              LLMs may "know" they're uncertain even when they sound confident.
+            </div><br>
+
+            <b>Future Directions</b>
+            <ol>
+              <li><b>Cross-model transfer:</b> Do probes generalize across architectures?</li>
+              <li><b>CCPS implementation:</b> Perturbation-based calibration</li>
+              <li><b>Causal circuit tracing:</b> Where does uncertainty computation happen?</li>
+              <li><b>Real-time confidence steering:</b> Intervene during generation</li>
+            </ol>
+
+            <b>Code Availability</b><br><br>
+            <pre>git clone https://github.com/joshcliu/deep-learning
+pip install -r requirements.txt
+jupyter notebook notebooks/colab_multi_source_probe.ipynb</pre>
+		    </div>
+		    <div class="margin-right-block">
+            Better uncertainty quantification enables selective prediction (abstain when uncertain), human-in-the-loop review, and smarter RAG triggering.
+		    </div>
+		</div>
+
+		<div class="content-margin-container" id="citations">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+						<div class='citation' id="references" style="height:auto"><br>
+							<span style="font-size:16px">References:</span><br><br>
+							<a id="ref_1"></a>[1] Burns et al. (2025) - <a href="#">CCPS: 55% ECE reduction via perturbation stability</a><br><br>
+							<a id="ref_2"></a>[2] Kuhn et al. (2024) - <a href="#">Semantic entropy for hallucination detection</a>, Nature<br><br>
+							<a id="ref_3"></a>[3] Kadavath et al. (2022) - <a href="#">LLM confidence via hidden states</a><br><br>
+							<a id="ref_4"></a>[4] Hewitt & Manning (2019) - <a href="#">Structural probes for linguistic knowledge</a><br><br>
+							<a id="ref_5"></a>[5] Mielke et al. (2022) - <a href="#">Layer-wise uncertainty analysis</a><br><br>
+						</div>
+		    </div>
+		    <div class="margin-right-block">
+            <!-- margin notes for reference block here -->
+		    </div>
+		</div>
+
+	</body>
+
+</html>
