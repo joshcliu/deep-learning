@@ -207,28 +207,35 @@
 		    <div class="main-content-block">
 						<h1>1. Introduction</h1>
 
-            Large language models (LLMs) have achieved remarkable performance across diverse tasks, yet they exhibit a critical failure mode: generating plausible-sounding but factually incorrect responses with high apparent confidence&mdash;a phenomenon termed "hallucination" <a href="#ref_1">[1]</a>. This miscalibration between expressed confidence and actual correctness poses significant risks for deployment in high-stakes domains such as medical diagnosis, legal reasoning, and financial analysis.<br><br>
+            Imagine asking an AI assistant about a medication interaction, and it responds with complete confidence&mdash;citing studies, explaining mechanisms, sounding utterly authoritative. The only problem? The information is completely fabricated. This isn't a hypothetical scenario; it's the everyday reality of large language models, which routinely generate plausible-sounding falsehoods with the same linguistic confidence as established facts <a href="#ref_1">[1]</a>.<br><br>
 
-            Current approaches to uncertainty quantification in LLMs face fundamental limitations. Output token probabilities, while accessible, do not reliably reflect true confidence <a href="#ref_2">[2]</a>. Verbalized confidence (asking models to self-report uncertainty) often exhibits systematic biases <a href="#ref_3">[3]</a>. Consistency-based methods requiring multiple forward passes are computationally expensive and may conflate aleatoric uncertainty (inherent ambiguity) with epistemic uncertainty (model knowledge gaps) <a href="#ref_4">[4]</a>.<br><br>
+            This phenomenon, colorfully termed "hallucination," represents one of the most pressing challenges in deploying LLMs for real-world applications <a href="#ref_2">[2]</a>. When a model generates fabricated legal precedents, incorrect medical dosages, or fictional scientific citations, the consequences can range from embarrassing to dangerous. The core issue isn't just that models make mistakes&mdash;all systems do&mdash;but that they provide no reliable signal about <i>when</i> they're likely to be wrong.<br><br>
+
+            The natural question is: can we teach models to know what they don't know? Or more precisely, can we <i>extract</i> such knowledge if it already exists somewhere in the model's internal representations?<br><br>
 
             <div class="hypothesis">
-              <b>Central Hypothesis:</b> The hidden states of LLMs contain rich uncertainty information that is partially lost in the final output distribution. By probing intermediate representations, we can extract signals that indicate when a model "knows" it is uncertain&mdash;even when its outputs appear confident.
+              <b>Central Hypothesis:</b> Large language models encode uncertainty information in their hidden states that is partially lost or distorted in the final output distribution. By probing intermediate representations&mdash;particularly from middle layers&mdash;we can extract signals that indicate when a model "knows" it is uncertain, even when its outputs appear confident.
             </div><br>
 
-            This hypothesis is motivated by prior work showing that middle layers (50-75% depth) of transformers encode more semantic uncertainty than final layers <a href="#ref_5">[5]</a>, and that linear probes can extract diverse linguistic properties from hidden states <a href="#ref_6">[6]</a>. We extend this line of research by systematically comparing probe architectures and introducing a novel multi-source approach that combines internal hidden state signals with expressed output confidence.<br><br>
+            This hypothesis is grounded in a growing body of evidence. Kadavath et al. <a href="#ref_3">[3]</a> demonstrated that LLMs exhibit some capacity for self-knowledge, performing above chance when asked to predict their own correctness. Burns et al. <a href="#ref_4">[4]</a> showed that hidden states can predict statement truthfulness without any labels, suggesting the model has already computed something like "confidence" internally. Perhaps most intriguingly, research on layer-wise representations has consistently found that middle layers (roughly 50-75% of network depth) encode richer semantic information than final layers <a href="#ref_5">[5]</a>&mdash;as if the model's deepest "thinking" happens in the middle, with final layers primarily formatting output.<br><br>
 
-            <b>Our Contributions:</b>
+            Yet despite these promising signals, there's a gap between knowing that uncertainty information <i>exists</i> somewhere in the model and understanding <i>how to optimally extract it</i>. Most prior work uses simple linear probes on single layers. But what if uncertainty is distributed across layers? What if the relationship between hidden states and confidence is non-linear? And crucially, what if the model's internal uncertainty diverges from its expressed confidence&mdash;creating a dangerous miscalibration?<br><br>
+
+            <b>Our Contributions:</b><br><br>
+            We address these questions through systematic experimentation:
             <ol>
-              <li><b>Systematic architecture comparison:</b> We evaluate 13+ probe architectures on the task of predicting LLM correctness from hidden states, identifying which inductive biases improve uncertainty extraction.</li>
-              <li><b>MultiSourceConfidenceNetwork:</b> We propose a novel architecture that fuses hidden states from multiple layers with output logit features, enabling detection of miscalibration between internal and expressed confidence.</li>
-              <li><b>Empirical validation:</b> We demonstrate that middle-layer probes achieve superior calibration (ECE) and discrimination (AUROC) compared to final-layer probes, validating prior theoretical intuitions.</li>
-              <li><b>Open-source framework:</b> We release our codebase for reproducible LLM confidence probing experiments.</li>
+              <li><b>Comprehensive architecture comparison:</b> We evaluate 8+ probe architectures with different inductive biases&mdash;from simple linear classifiers to attention-based networks&mdash;testing which assumptions about uncertainty structure hold in practice.</li>
+              <li><b>MultiSourceConfidenceNetwork:</b> We introduce a novel architecture that combines hidden states from multiple transformer layers with output logit features. This design can detect <i>miscalibration</i>&mdash;cases where internal uncertainty and expressed confidence disagree.</li>
+              <li><b>Layer importance analysis:</b> Through learned attention weights, we empirically validate which layers contribute most to uncertainty prediction, testing the "middle layers are optimal" hypothesis.</li>
+              <li><b>Open-source framework:</b> We release our complete codebase for reproducible LLM confidence probing experiments.</li>
             </ol>
 		    </div>
 		    <div class="margin-right-block">
-						Hallucination is particularly concerning because users cannot easily distinguish confident correct responses from confident incorrect ones without external verification.<br><br>
+						The hallucination problem is particularly insidious because users <i>cannot easily distinguish</i> confident correct responses from confident incorrect ones without external verification.<br><br>
 
-            Our work addresses the gap between knowing <i>that</i> uncertainty information exists in hidden states and understanding <i>how</i> to optimally extract it.
+            A 2024 Nature study <a href="#ref_6">[6]</a> found semantic entropy can detect "confabulations"&mdash;but requires 5-10 forward passes per query. Our approach extracts uncertainty from a single pass.<br><br>
+
+            <b>Why does this matter?</b> If we can reliably detect when models are uncertain, we enable selective prediction (abstaining on hard cases), retrieval augmentation (fetching external knowledge when needed), and human-in-the-loop systems (flagging responses for expert review).
 		    </div>
 		</div>
 
@@ -239,30 +246,47 @@
 		    <div class="main-content-block">
 					<h1>2. Background and Related Work</h1>
 
-          <b>2.1 Uncertainty Quantification in Neural Networks</b><br><br>
+          Before diving into our approach, it's worth understanding the landscape of uncertainty quantification&mdash;where the field has been, what's been tried, and why the problem remains challenging.<br><br>
 
-          Uncertainty quantification has a rich history in machine learning, with classical approaches including Bayesian neural networks <a href="#ref_7">[7]</a>, Monte Carlo dropout <a href="#ref_8">[8]</a>, and deep ensembles <a href="#ref_9">[9]</a>. These methods typically distinguish between <i>aleatoric uncertainty</i> (irreducible noise in data) and <i>epistemic uncertainty</i> (model knowledge gaps). For LLMs, epistemic uncertainty is particularly relevant: we want to know when the model lacks knowledge to answer correctly.<br><br>
+          <b>2.1 The Classical Uncertainty Toolkit</b><br><br>
 
-          <b>2.2 Uncertainty in Large Language Models</b><br><br>
+          Machine learning has grappled with uncertainty for decades, developing several foundational approaches. <i>Bayesian neural networks</i> <a href="#ref_7">[7]</a> learn distributions over weights rather than point estimates, providing principled uncertainty through posterior inference. <i>Monte Carlo dropout</i> <a href="#ref_8">[8]</a> offered a practical approximation: keep dropout active at test time, run multiple forward passes, and use prediction variance as uncertainty. <i>Deep ensembles</i> <a href="#ref_9">[9]</a> took a simpler route&mdash;train multiple networks independently and measure their disagreement.<br><br>
 
-          Three primary paradigms have emerged for LLM uncertainty estimation:
-          <ul>
-            <li><b>Output probability-based:</b> Using softmax probabilities or perplexity as confidence proxies. Jiang et al. <a href="#ref_2">[2]</a> showed these are poorly calibrated, particularly for open-ended generation.</li>
-            <li><b>Consistency-based:</b> Sampling multiple responses and measuring agreement. Kuhn et al. <a href="#ref_4">[4]</a> introduced <i>semantic entropy</i>, which clusters responses by meaning before computing uncertainty. This achieved state-of-the-art hallucination detection but requires 5-10 forward passes per query.</li>
-            <li><b>Probing-based:</b> Training classifiers on internal representations. Kadavath et al. <a href="#ref_3">[3]</a> showed LLMs exhibit some self-knowledge about correctness, while Burns et al. <a href="#ref_10">[10]</a> demonstrated that hidden states can predict truthfulness.</li>
-          </ul>
+          These methods distinguish between two types of uncertainty: <i>aleatoric</i> (inherent noise in the data that cannot be reduced with more training) and <i>epistemic</i> (uncertainty from model limitations that could, in principle, be reduced). For LLMs answering factual questions, epistemic uncertainty is what we care about most&mdash;we want to know when the model simply doesn't have the knowledge to answer correctly.<br><br>
 
-          Our work falls into the probing paradigm but addresses several limitations of prior approaches. Most probing work uses simple linear classifiers on single layers. We systematically compare architectures and demonstrate benefits of multi-layer fusion.<br><br>
+          <b>2.2 Uncertainty in the Age of LLMs</b><br><br>
 
-          <b>2.3 Linear Probing for Representation Analysis</b><br><br>
+          The transformer revolution <a href="#ref_10">[10]</a> brought new challenges. Modern LLMs operate at scales where ensembles are prohibitively expensive, and the relationship between token probabilities and factual confidence is tenuous at best. Three paradigms have emerged to tackle LLM uncertainty:<br><br>
 
-          Probing classifiers have become a standard tool for analyzing neural network representations <a href="#ref_6">[6]</a>. The key insight is that if a property can be linearly extracted from hidden states, the network has likely computed and explicitly represented that property. Hewitt and Manning <a href="#ref_6">[6]</a> established structural probes for syntax; we apply similar methodology to uncertainty.<br><br>
+          <i>Token probability methods</i> use the model's softmax outputs as confidence proxies. The intuition is simple: if the model assigns high probability to its answer, it should be confident. Unfortunately, Jiang et al. <a href="#ref_11">[11]</a> demonstrated these are poorly calibrated&mdash;models often assign high probability to wrong answers, particularly in open-ended generation. The model's "confidence" in its next token doesn't translate to confidence in factual correctness.<br><br>
 
-          The choice of linear vs. non-linear probes involves a fundamental trade-off: linear probes are interpretable and less prone to memorization, but may miss non-linear structure. Complex probes can capture more information but risk learning spurious correlations. We empirically compare both approaches.<br><br>
+          <i>Consistency-based methods</i> sample multiple responses and measure agreement. The breakthrough here came from Kuhn et al. <a href="#ref_6">[6]</a>, who introduced <i>semantic entropy</i>&mdash;a clever approach that clusters responses by meaning before computing uncertainty. "Paris," "The capital is Paris," and "It's Paris, France" are treated as the same answer. This achieved state-of-the-art hallucination detection and was published in Nature in 2024. The catch? It requires 5-10 forward passes per query, making it computationally expensive for deployment.<br><br>
 
-          <b>2.4 Calibration and Proper Scoring Rules</b><br><br>
+          <i>Verbalized confidence</i> simply asks the model: "How confident are you?" Xiong et al. <a href="#ref_12">[12]</a> systematically evaluated this approach, finding that while LLMs can express uncertainty, they tend to be systematically overconfident&mdash;perhaps mimicking human patterns of expressing confidence. Fine-tuning can help, but the fundamental issue remains: the model's self-report may not reflect its actual internal state.<br><br>
 
-          A model is <i>calibrated</i> if its confidence matches its accuracy: when it predicts 70% confidence, it should be correct 70% of the time. Expected Calibration Error (ECE) <a href="#ref_11">[11]</a> measures this by binning predictions and computing the gap between average confidence and accuracy in each bin:<br>
+          <b>2.3 Probing: Looking Inside the Black Box</b><br><br>
+
+          Our approach falls into a fourth paradigm: <i>probing internal representations</i>. The idea is conceptually simple&mdash;if the model has computed something like "confidence" internally, we should be able to extract it by training a classifier on the hidden states.<br><br>
+
+          Probing has a rich history in NLP. Hewitt and Manning <a href="#ref_13">[13]</a> pioneered structural probes, showing that parse trees are encoded as geometric relationships in BERT's hidden space. The key insight: if a property can be <i>linearly</i> extracted from representations, the model has likely computed it explicitly. Complex properties requiring non-linear probes might be artifacts of the probe's own learning rather than genuine model knowledge.<br><br>
+
+          For uncertainty specifically, several works laid the groundwork. Kadavath et al. <a href="#ref_3">[3]</a> demonstrated that large LLMs exhibit meaningful self-knowledge&mdash;when asked to evaluate their own answers, they perform substantially above chance, with calibration improving with scale. Burns et al. <a href="#ref_4">[4]</a> went further with <i>Contrast-Consistent Search</i> (CCS), showing that hidden states can predict statement truthfulness without any labels at all. Their method finds a direction in activation space where a statement and its negation have opposite values&mdash;essentially discovering the model's internal "truth detector."<br><br>
+
+          More recent work has examined <i>where</i> uncertainty is encoded. Azaria and Mitchell <a href="#ref_14">[14]</a> trained classifiers on hidden states to detect factual errors, finding strong signal in intermediate layers. Gekhman et al. <a href="#ref_15">[15]</a> revealed a troubling gap: LLMs can encode knowledge internally (detectable via probing) while still failing to express it correctly in output&mdash;suggesting internal representations may be more informative than generated text.<br><br>
+
+          <b>2.4 The Linear Representation Hypothesis</b><br><br>
+
+          A theoretical foundation for probing comes from the <i>linear representation hypothesis</i> <a href="#ref_16">[16]</a>: high-level concepts are encoded as linear directions in neural network representation spaces. Park et al. formalized this idea, showing that concepts like sentiment, topic, and style can be extracted via linear probes and manipulated via linear steering. Nanda et al. <a href="#ref_17">[17]</a> demonstrated that even world models in simple sequence prediction exhibit emergent linear structure.<br><br>
+
+          If uncertainty follows this pattern&mdash;if "model confidence" is a direction in hidden space&mdash;then linear probes should suffice. But the hypothesis isn't universal. Some properties may require non-linear extraction, and uncertainty might be distributed across dimensions in complex ways. This motivates our systematic comparison of architectures.<br><br>
+
+          Representation engineering <a href="#ref_18">[18]</a> takes this further: once you can read a concept from hidden states, you can write to it&mdash;steering model behavior by modifying activations. Our work focuses on reading, but the same framework could eventually enable uncertainty-aware generation.<br><br>
+
+          <b>2.5 Calibration: When Confidence Matches Reality</b><br><br>
+
+          A model is <i>calibrated</i> if its confidence matches its accuracy: when it predicts 70% confidence, it should be correct 70% of the time. This property is crucial for downstream applications&mdash;users need to know when to trust model outputs.<br><br>
+
+          Guo et al. <a href="#ref_19">[19]</a> revealed that modern neural networks are often poorly calibrated, tending toward overconfidence. Their work introduced <i>temperature scaling</i>&mdash;a simple post-hoc fix that rescales logits&mdash;and popularized Expected Calibration Error (ECE) as a metric:<br>
           <center>
             <math xmlns="http://www.w3.org/1998/Math/MathML">
               <mrow>
@@ -286,7 +310,9 @@
             </math>
           </center><br>
 
-          However, ECE can be gamed by predicting constant confidence. The Brier score is a <i>proper scoring rule</i> that jointly measures calibration and discrimination:
+          ECE bins predictions by confidence and computes the average gap between predicted confidence and observed accuracy. A perfectly calibrated model has ECE = 0. However, ECE has limitations&mdash;a model predicting constant 50% confidence on a 50% accuracy task achieves perfect ECE despite providing no useful information.<br><br>
+
+          The <i>Brier score</i> <a href="#ref_20">[20]</a> addresses this as a <i>proper scoring rule</i>&mdash;it's uniquely minimized when predictions equal true probabilities:
           <center>
             <math xmlns="http://www.w3.org/1998/Math/MathML">
               <mrow>
@@ -314,25 +340,33 @@
               </mrow>
             </math>
           </center><br>
-          where p<sub>i</sub> is predicted probability and y<sub>i</sub> &isin; {0,1} is correctness. Brier score is minimized when p<sub>i</sub> = P(y<sub>i</sub>=1|x<sub>i</sub>), the true conditional probability. We train our probes with Brier loss to encourage calibration.<br><br>
+          The Brier score rewards confident correct predictions and heavily penalizes confident wrong ones&mdash;exactly the behavior we want for hallucination detection. We train our probes with Brier loss to encourage this calibration property.<br><br>
 
-          <b>2.5 Gap in Prior Work</b><br><br>
+          <b>2.6 The Layer Question: Where Is Uncertainty Encoded?</b><br><br>
 
-          Despite promising results, prior probing work has several limitations:
+          A recurring finding across probing studies is that <i>middle layers outperform final layers</i> for extracting high-level semantic information. Research has consistently shown that intermediate transformer layers (roughly 50-75% of network depth) encode the richest representations <a href="#ref_5">[5]</a>, with early layers capturing syntactic features and final layers optimizing for output prediction.<br><br>
+
+          This makes intuitive sense: final layers specialize in mapping representations to vocabulary, potentially losing nuanced information in the process. If the model's "thinking" peaks in middle layers, that's where uncertainty signals should be strongest.<br><br>
+
+          <b>2.7 Gaps We Address</b><br><br>
+
+          Despite substantial progress, prior work leaves several questions unanswered:
           <ol>
-            <li><b>Single-layer focus:</b> Most studies probe individual layers rather than combining information across the network.</li>
-            <li><b>Limited architecture exploration:</b> Linear probes dominate; systematic comparison of non-linear architectures is lacking.</li>
-            <li><b>Ignoring expressed confidence:</b> Probes typically use only hidden states, ignoring the output logits which contain the model's "expressed" confidence.</li>
+            <li><b>Architecture comparison:</b> Most studies use linear probes. How do non-linear architectures&mdash;MLPs, attention mechanisms, sparse selection&mdash;compare? Do different inductive biases about uncertainty structure yield different results?</li>
+            <li><b>Multi-layer fusion:</b> If uncertainty is distributed across layers, combining them should help. But how? Simple concatenation? Learned attention? Ensembling?</li>
+            <li><b>Internal vs. expressed confidence:</b> Probes typically use only hidden states. But the model's output logits contain its "expressed" confidence. What if internal and expressed confidence disagree? This miscalibration might be exactly what we want to detect.</li>
           </ol>
 
-          We address these gaps by (1) systematically comparing multi-layer fusion strategies, (2) evaluating 13+ architectures with different inductive biases, and (3) proposing MultiSourceConfidenceNetwork that combines internal uncertainty signals with expressed confidence to detect miscalibration.
+          Our MultiSourceConfidenceNetwork addresses (3) directly, while our systematic architecture comparison tackles (1) and (2).
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
-          <b>Key distinction:</b> Semantic entropy <a href="#ref_4">[4]</a> captures uncertainty about <i>what to say</i>, while hidden state probes capture uncertainty about <i>correctness</i>. These are complementary signals.<br><br>
+          <b>A key distinction:</b> Semantic entropy <a href="#ref_6">[6]</a> captures uncertainty about <i>what to say</i> (generation variance), while hidden state probes capture uncertainty about <i>correctness</i> (internal confidence). These are complementary signals.<br><br>
 
-          Recent work on CCPS <a href="#ref_12">[12]</a> achieves 55% ECE reduction using perturbation stability, suggesting hidden states contain exploitable uncertainty structure.<br><br>
+          TruthfulQA <a href="#ref_21">[21]</a> found larger models are often <i>less</i> truthful&mdash;they've learned to generate convincing-sounding falsehoods. This underscores why output fluency doesn't equal confidence.<br><br>
 
-          Mielke et al. <a href="#ref_5">[5]</a> found middle layers (50-75% depth) encode more uncertainty than final layers, motivating our multi-layer approach.
+          Recent work on conformal prediction <a href="#ref_22">[22]</a> offers another perspective: distribution-free uncertainty guarantees. While we focus on probing, these approaches are complementary.<br><br>
+
+          <b>Why middle layers?</b> The transformer's information flow suggests early layers handle syntax, middle layers handle semantics, and final layers handle output formatting. Uncertainty about meaning should peak in the middle.
 		    </div>
 		</div>
 
@@ -382,7 +416,7 @@
 
             <ul>
               <li><b>Model:</b> Qwen2.5-7B (28 layers, 3584 hidden dimension), chosen for strong performance and accessibility.</li>
-              <li><b>Dataset:</b> MMLU validation set <a href="#ref_13">[13]</a>&mdash;a multiple-choice question-answering benchmark spanning 57 subjects from STEM to humanities. We use ~1,500 examples.</li>
+              <li><b>Dataset:</b> MMLU validation set <a href="#ref_23">[23]</a>&mdash;a multiple-choice question-answering benchmark spanning 57 subjects from STEM to humanities. We use ~1,500 examples.</li>
               <li><b>Evaluation:</b> The model generates an answer via argmax over answer token logits. We label each example as correct (1) or incorrect (0) based on ground truth.</li>
               <li><b>Data split:</b> 60% train, 20% validation, 20% test. Stratified by subject to ensure balanced representation.</li>
             </ul>
@@ -391,7 +425,7 @@
 
             We extract hidden states from quartile positions in the transformer: layers [7, 14, 21, 27] for the 28-layer model. This captures representations from early (syntactic), middle (semantic), and late (task-specific) processing stages. We use the last token position, which aggregates context via attention.<br><br>
 
-            To enable extraction on consumer GPUs, we use 8-bit quantization via bitsandbytes <a href="#ref_14">[14]</a>. Hidden states are converted to float32 for probe training.<br><br>
+            To enable extraction on consumer GPUs, we use 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. Hidden states are converted to float32 for probe training.<br><br>
 
             <b>3.4 Training Protocol</b><br><br>
 
@@ -758,21 +792,31 @@
 		    <div class="main-content-block">
 						<div class='citation' id="references" style="height:auto"><br>
 							<span style="font-size:16px">References:</span><br><br>
-							<a id="ref_1"></a>[1] Ji, Z., et al. (2023). Survey of Hallucination in Natural Language Generation. <i>ACM Computing Surveys</i>.<br><br>
-							<a id="ref_2"></a>[2] Jiang, Z., et al. (2021). How Can We Know When Language Models Know? <i>TACL</i>.<br><br>
-							<a id="ref_3"></a>[3] Kadavath, S., et al. (2022). Language Models (Mostly) Know What They Know. <i>arXiv:2207.05221</i>.<br><br>
-							<a id="ref_4"></a>[4] Kuhn, L., et al. (2024). Semantic Uncertainty: Linguistic Invariances for Uncertainty Estimation. <i>Nature</i>.<br><br>
-							<a id="ref_5"></a>[5] Mielke, S., et al. (2022). Reducing Conversational Agents' Overconfidence Through Linguistic Calibration. <i>TACL</i>.<br><br>
-							<a id="ref_6"></a>[6] Hewitt, J. & Manning, C. (2019). A Structural Probe for Finding Syntax in Word Representations. <i>NAACL</i>.<br><br>
-							<a id="ref_7"></a>[7] Blundell, C., et al. (2015). Weight Uncertainty in Neural Networks. <i>ICML</i>.<br><br>
-							<a id="ref_8"></a>[8] Gal, Y. & Ghahramani, Z. (2016). Dropout as a Bayesian Approximation. <i>ICML</i>.<br><br>
-							<a id="ref_9"></a>[9] Lakshminarayanan, B., et al. (2017). Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles. <i>NeurIPS</i>.<br><br>
-							<a id="ref_10"></a>[10] Burns, C., et al. (2023). Discovering Latent Knowledge in Language Models Without Supervision. <i>ICLR</i>.<br><br>
-							<a id="ref_11"></a>[11] Guo, C., et al. (2017). On Calibration of Modern Neural Networks. <i>ICML</i>.<br><br>
-              <a id="ref_12"></a>[12] Burns, C., et al. (2025). Conformal Calibration via Perturbation Stability. <i>arXiv</i>.<br><br>
-							<a id="ref_13"></a>[13] Hendrycks, D., et al. (2021). Measuring Massive Multitask Language Understanding. <i>ICLR</i>.<br><br>
-							<a id="ref_14"></a>[14] Dettmers, T., et al. (2022). LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale. <i>NeurIPS</i>.<br><br>
-              <a id="ref_15"></a>[15] Park, K., et al. (2023). The Linear Representation Hypothesis and the Geometry of Large Language Models. <i>arXiv</i>.<br><br>
+							<a id="ref_1"></a>[1] Ji, Z., Lee, N., Frieske, R., et al. (2023). <a href="https://dl.acm.org/doi/10.1145/3571730">Survey of Hallucination in Natural Language Generation</a>. <i>ACM Computing Surveys</i>, 55(12), 1-38.<br><br>
+							<a id="ref_2"></a>[2] Zhang, Y., Li, Y., Cui, L., et al. (2023). <a href="https://arxiv.org/abs/2311.05232">Siren's Song in the AI Ocean: A Survey on Hallucination in Large Language Models</a>. <i>arXiv:2311.05232</i>.<br><br>
+							<a id="ref_3"></a>[3] Kadavath, S., Conerly, T., Askell, A., et al. (2022). <a href="https://arxiv.org/abs/2207.05221">Language Models (Mostly) Know What They Know</a>. <i>arXiv:2207.05221</i>.<br><br>
+							<a id="ref_4"></a>[4] Burns, C., Ye, H., Klein, D., & Steinhardt, J. (2023). <a href="https://openreview.net/forum?id=ETKGuby0hcs">Discovering Latent Knowledge in Language Models Without Supervision</a>. <i>ICLR 2023</i>.<br><br>
+							<a id="ref_5"></a>[5] Gurnee, W. & Tegmark, M. (2024). <a href="https://arxiv.org/abs/2502.02013">Layer by Layer: Uncovering Hidden Representations in Language Models</a>. <i>arXiv:2502.02013</i>.<br><br>
+							<a id="ref_6"></a>[6] Farquhar, S., Kossen, J., Kuhn, L., & Gal, Y. (2024). <a href="https://www.nature.com/articles/s41586-024-07421-0">Detecting hallucinations in large language models using semantic entropy</a>. <i>Nature</i>, 630, 625-630.<br><br>
+							<a id="ref_7"></a>[7] Blundell, C., Cornebise, J., Kavukcuoglu, K., & Wierstra, D. (2015). <a href="https://proceedings.mlr.press/v37/blundell15.html">Weight Uncertainty in Neural Networks</a>. <i>ICML 2015</i>.<br><br>
+							<a id="ref_8"></a>[8] Gal, Y. & Ghahramani, Z. (2016). <a href="https://proceedings.mlr.press/v48/gal16.html">Dropout as a Bayesian Approximation: Representing Model Uncertainty in Deep Learning</a>. <i>ICML 2016</i>.<br><br>
+							<a id="ref_9"></a>[9] Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). <a href="https://proceedings.neurips.cc/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html">Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles</a>. <i>NeurIPS 2017</i>.<br><br>
+							<a id="ref_10"></a>[10] Vaswani, A., Shazeer, N., Parmar, N., et al. (2017). <a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>. <i>NeurIPS 2017</i>.<br><br>
+							<a id="ref_11"></a>[11] Jiang, Z., Araki, J., Ding, H., & Neubig, G. (2021). <a href="https://aclanthology.org/2021.tacl-1.57/">How Can We Know When Language Models Know? On the Calibration of Language Models for Question Answering</a>. <i>TACL</i>, 9, 962-977.<br><br>
+              <a id="ref_12"></a>[12] Xiong, M., Hu, Z., Lu, X., et al. (2024). <a href="https://openreview.net/forum?id=gjeQKFxFpZ">Can LLMs Express Their Uncertainty? An Empirical Evaluation of Confidence Elicitation in LLMs</a>. <i>ICLR 2024</i>.<br><br>
+							<a id="ref_13"></a>[13] Hewitt, J. & Manning, C. (2019). <a href="https://aclanthology.org/N19-1419/">A Structural Probe for Finding Syntax in Word Representations</a>. <i>NAACL 2019</i>.<br><br>
+							<a id="ref_14"></a>[14] Azaria, A. & Mitchell, T. (2023). <a href="https://arxiv.org/abs/2304.13734">The Internal State of an LLM Knows When It's Lying</a>. <i>EMNLP 2023 Findings</i>.<br><br>
+              <a id="ref_15"></a>[15] Gekhman, Z., Yona, G., Aharoni, R., et al. (2025). <a href="https://belinkov.com/assets/pdf/iclr2025-know.pdf">Does the Model Know It Knows? Probing Knowledge in Language Models</a>. <i>ICLR 2025</i>.<br><br>
+              <a id="ref_16"></a>[16] Park, K., Choe, Y.J., & Veitch, V. (2024). <a href="https://proceedings.mlr.press/v235/park24c.html">The Linear Representation Hypothesis and the Geometry of Large Language Models</a>. <i>ICML 2024</i>.<br><br>
+              <a id="ref_17"></a>[17] Nanda, N., Lee, A., & Wattenberg, M. (2023). <a href="https://arxiv.org/abs/2309.00941">Emergent Linear Representations in World Models of Self-Supervised Sequence Models</a>. <i>arXiv:2309.00941</i>.<br><br>
+              <a id="ref_18"></a>[18] Zou, A., Phan, L., Chen, S., et al. (2023). <a href="https://arxiv.org/abs/2310.01405">Representation Engineering: A Top-Down Approach to AI Transparency</a>. <i>arXiv:2310.01405</i>.<br><br>
+              <a id="ref_19"></a>[19] Guo, C., Pleiss, G., Sun, Y., & Weinberger, K.Q. (2017). <a href="https://proceedings.mlr.press/v70/guo17a.html">On Calibration of Modern Neural Networks</a>. <i>ICML 2017</i>.<br><br>
+              <a id="ref_20"></a>[20] Brier, G.W. (1950). <a href="https://journals.ametsoc.org/view/journals/mwre/78/1/1520-0493_1950_078_0001_vofeit_2_0_co_2.xml">Verification of Forecasts Expressed in Terms of Probability</a>. <i>Monthly Weather Review</i>, 78(1), 1-3.<br><br>
+              <a id="ref_21"></a>[21] Lin, S., Hilton, J., & Evans, O. (2022). <a href="https://aclanthology.org/2022.acl-long.229/">TruthfulQA: Measuring How Models Mimic Human Falsehoods</a>. <i>ACL 2022</i>.<br><br>
+              <a id="ref_22"></a>[22] Angelopoulos, A.N. & Bates, S. (2023). <a href="https://arxiv.org/abs/2107.07511">Conformal Prediction: A Gentle Introduction</a>. <i>Foundations and Trends in Machine Learning</i>, 16(4), 494-591.<br><br>
+              <a id="ref_23"></a>[23] Hendrycks, D., Burns, C., Basart, S., et al. (2021). <a href="https://openreview.net/forum?id=d7KBjmI3GmQ">Measuring Massive Multitask Language Understanding</a>. <i>ICLR 2021</i>.<br><br>
+              <a id="ref_24"></a>[24] Dettmers, T., Lewis, M., Belkada, Y., & Zettlemoyer, L. (2022). <a href="https://arxiv.org/abs/2208.07339">LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale</a>. <i>NeurIPS 2022</i>.<br><br>
+              <a id="ref_25"></a>[25] Orgad, H., Toker, M., Gekhman, Z., et al. (2024). <a href="https://aclanthology.org/2024.knowledgenlp-1.4/">LLMs Know More Than They Show: On the Intrinsic Representation of LLM Hallucinations</a>. <i>ACL 2024 Workshop on Knowledge-Augmented Methods for NLP</i>.<br><br>
 						</div>
 		    </div>
 		    <div class="margin-right-block">
