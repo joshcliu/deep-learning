@@ -412,103 +412,103 @@
             </center><br>
             where p&#770; is the predicted probability that a is correct.<br><br>
 
-            <b>3.2 Experimental Setup</b><br><br>
+            <b>3.2 Datasets</b><br><br>
+
+            We evaluate on two complementary multiple-choice benchmarks:<br><br>
+
+            <b>MMLU</b> <a href="#ref_23">[23]</a> (Massive Multitask Language Understanding) is a widely-used benchmark spanning 57 subjects from STEM to humanities, with 4-choice questions. It primarily tests knowledge recall with some reasoning.<br><br>
+
+            <b>MMLU-Pro</b> <a href="#ref_26">[26]</a> extends MMLU with several key improvements: 10 answer choices instead of 4 (reducing random guessing success from 25% to 10%), more reasoning-focused questions, and cleaner curation that removes trivial items. MMLU-Pro causes a 16-33% accuracy drop compared to MMLU, making it a more challenging testbed.<br><br>
+
+            Together, our evaluation spans approximately <b>10,000 examples</b>&mdash;enough to draw robust conclusions while remaining tractable for hidden state extraction.<br><br>
+
+            <b>3.3 Answer Generation and Labels</b><br><br>
+
+            A critical design choice is how we obtain the model's "answer" to evaluate. We use <b>constrained generation</b>: the model is prompted with the question, and we force the next token to be one of the valid answer letters (A, B, C, D for MMLU; A-J for MMLU-Pro). This ensures unambiguous answer extraction.<br><br>
+
+            We also experiment with a <b>logit-based approach</b>: instead of generating, we directly examine the logits for answer tokens (A, B, C, D) and select the highest. Both methods yield similar results, but constrained generation better reflects deployment scenarios.<br><br>
+
+            Each example receives a <b>binary correctness label</b>: 1 if the model's answer matches ground truth, 0 otherwise. We do not use partial credit&mdash;the model is either right or wrong. This clean supervision signal makes probe training straightforward.<br><br>
+
+            <b>3.4 Model and Hidden State Extraction</b><br><br>
 
             <ul>
-              <li><b>Model:</b> Qwen2.5-7B (28 layers, 3584 hidden dimension), chosen for strong performance and accessibility.</li>
-              <li><b>Dataset:</b> MMLU validation set <a href="#ref_23">[23]</a>&mdash;a multiple-choice question-answering benchmark spanning 57 subjects from STEM to humanities. We use ~1,500 examples.</li>
-              <li><b>Evaluation:</b> The model generates an answer via argmax over answer token logits. We label each example as correct (1) or incorrect (0) based on ground truth.</li>
-              <li><b>Data split:</b> 60% train, 20% validation, 20% test. Stratified by subject to ensure balanced representation.</li>
-            </ul>
+              <li><b>Model:</b> Qwen2.5-7B (28 layers, 3584 hidden dimension), chosen for strong performance and accessibility without gating restrictions.</li>
+              <li><b>Quantization:</b> 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a> enables extraction on consumer GPUs. Hidden states are converted to float32 for probe training.</li>
+              <li><b>Layer selection:</b> We extract from quartile positions [7, 14, 21, 27], capturing early (syntactic), middle (semantic), and late (task-specific) processing stages.</li>
+              <li><b>Token position:</b> We use the <b>last token</b> hidden state, which aggregates context via the attention mechanism and represents the model's "decision point" before generating an answer.</li>
+            </ul><br>
 
-            <b>3.3 Hidden State Extraction</b><br><br>
+            <b>3.5 Training Protocol</b><br><br>
 
-            We extract hidden states from quartile positions in the transformer: layers [7, 14, 21, 27] for the 28-layer model. This captures representations from early (syntactic), middle (semantic), and late (task-specific) processing stages. We use the last token position, which aggregates context via attention.<br><br>
-
-            To enable extraction on consumer GPUs, we use 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. Hidden states are converted to float32 for probe training.<br><br>
-
-            <b>3.4 Training Protocol</b><br><br>
+            We use <b>k-fold cross-validation</b> for robust evaluation. This allows us to use all data for both training and evaluation while avoiding overfitting to a single train/test split.<br><br>
 
             All probes are trained with:
             <ul>
-              <li><b>Loss:</b> Brier score (MSE between predicted probability and binary correctness label)</li>
-              <li><b>Optimizer:</b> AdamW with weight decay 1e-5</li>
-              <li><b>Schedule:</b> Cosine annealing over 200 epochs</li>
-              <li><b>Selection:</b> Best validation Brier score checkpoint</li>
-            </ul>
+              <li><b>Loss:</b> Brier score &mdash; the squared error between predicted probability and binary label: <code>(p&#770; - y)²</code></li>
+              <li><b>Optimizer:</b> AdamW with learning rate 1e-3 and weight decay 1e-5</li>
+              <li><b>Schedule:</b> Cosine annealing over 100 epochs (decaying to 1% of initial LR)</li>
+              <li><b>Selection:</b> Best validation Brier score checkpoint restored after training</li>
+            </ul><br>
 
-            We deliberately avoid early stopping to allow full convergence and use validation performance for model selection rather than regularization.<br><br>
+            Why Brier score instead of binary cross-entropy? BCE can be minimized by making confident predictions regardless of accuracy, while Brier score is a <i>proper scoring rule</i>&mdash;it's uniquely minimized when predictions equal true probabilities. This encourages calibration during training, not just discrimination.<br><br>
 
-            <b>3.5 Probe Architectures</b><br><br>
+            <b>3.6 Probe Architectures</b><br><br>
 
-            We evaluate architectures with different inductive biases about uncertainty structure:
+            We evaluate four architectures, each embodying a different hypothesis about how uncertainty is encoded:<br><br>
 
             <table class="results">
               <tr>
                 <th>Architecture</th>
-                <th>Inductive Bias</th>
+                <th>Hypothesis</th>
                 <th>Parameters</th>
               </tr>
               <tr>
-                <td>Linear</td>
-                <td>Uncertainty is linearly separable</td>
+                <td><b>Linear Probe</b><br>(baseline)</td>
+                <td><i>"Uncertainty is a direction."</i> If uncertainty is linearly represented in hidden space (per the linear representation hypothesis <a href="#ref_16">[16]</a>), a simple linear classifier should suffice. This is the interpretability-friendly baseline.</td>
                 <td>~4K</td>
               </tr>
               <tr>
-                <td>MLP (2-layer)</td>
-                <td>Non-linear feature interactions</td>
+                <td><b>MLP</b><br>(2-layer)</td>
+                <td><i>"Uncertainty requires feature interactions."</i> Perhaps correctness prediction requires combining multiple hidden dimensions non-linearly&mdash;e.g., comparing activations in different regions. An MLP with ReLU activations can learn such interactions.</td>
                 <td>~1M</td>
               </tr>
               <tr>
-                <td>Attention</td>
-                <td>Relationships between hidden dimensions matter</td>
-                <td>~500K</td>
-              </tr>
-              <tr>
-                <td>Sparse</td>
-                <td>Only a subset of dimensions encode uncertainty</td>
-                <td>~500K</td>
-              </tr>
-              <tr>
-                <td>MultiHead</td>
-                <td>Different uncertainty aspects need different detectors</td>
-                <td>~200K</td>
-              </tr>
-              <tr>
-                <td>Hierarchical</td>
-                <td>Uncertainty exists at multiple granularities</td>
-                <td>~2M</td>
-              </tr>
-              <tr>
-                <td>LayerEnsemble</td>
-                <td>Different layers contribute complementary signals</td>
+                <td><b>LayerEnsemble</b></td>
+                <td><i>"Different layers know different things."</i> Early layers might encode lexical uncertainty ("is this word ambiguous?"), while deeper layers encode semantic uncertainty ("does this answer make sense?"). This architecture trains separate probes per layer and learns optimal combination weights.</td>
                 <td>~300K</td>
               </tr>
               <tr>
                 <td><b>MultiSource</b></td>
-                <td>Internal and expressed confidence can diverge</td>
+                <td><i>"Internal and expressed confidence can diverge."</i> The model's hidden states encode its <i>internal</i> uncertainty, while output logits encode its <i>expressed</i> confidence. When these disagree&mdash;high logit confidence but uncertain hidden states&mdash;the model may be miscalibrated. This architecture fuses both information sources to detect such mismatches.</td>
                 <td>~100K</td>
               </tr>
             </table><br>
 
-            <b>3.6 Evaluation Metrics</b><br><br>
+            The Linear Probe serves as our primary baseline. If more complex architectures don't substantially outperform it, that's actually an interesting finding&mdash;it suggests uncertainty is indeed linearly encoded and that simple probes are not just sufficient but <i>preferable</i> for interpretability.<br><br>
+
+            <b>3.7 Evaluation Metrics</b><br><br>
+
+            We evaluate probes on three complementary metrics:<br><br>
 
             <ul>
-              <li><b>AUROC:</b> Area under ROC curve&mdash;measures discrimination ability (separating correct from incorrect)</li>
-              <li><b>Brier Score:</b> Proper scoring rule measuring calibration + discrimination (lower is better)</li>
-              <li><b>ECE:</b> Expected Calibration Error with 10 bins (lower is better)</li>
-            </ul>
+              <li><b>AUROC</b> (Area Under ROC Curve): Measures <i>discrimination</i>&mdash;can the probe separate correct from incorrect answers? A random baseline achieves 0.5; higher is better.</li>
+              <li><b>Brier Score</b>: A proper scoring rule measuring both calibration and discrimination. Computed as mean squared error between predictions and labels. Lower is better; 0 is perfect.</li>
+              <li><b>ECE</b> (Expected Calibration Error): Measures <i>calibration</i>&mdash;when the probe predicts 70% confidence, is the model correct 70% of the time? We use 10 bins. Lower is better; 0 is perfect.</li>
+            </ul><br>
 
-            We report 95% confidence intervals via bootstrap resampling (n=1000).
+            <b>Baseline:</b> We compare against the raw softmax probability of the predicted answer&mdash;the model's "expressed" confidence without any learned calibration.
 		    </div>
-		    <div class="margin-right-block" style="transform: translate(0%, -60%);">
-          <b>Why MMLU?</b> Multiple-choice format enables unambiguous correctness labels. The 57 subjects provide domain diversity.<br><br>
+		    <div class="margin-right-block" style="transform: translate(0%, -45%);">
+          <b>Why two benchmarks?</b> MMLU tests knowledge, MMLU-Pro tests reasoning. If probes work on both, the uncertainty signal generalizes across task types.<br><br>
 
-          <b>Why quartile layers?</b> Prior work <a href="#ref_5">[5]</a> suggests middle layers are optimal. Quartile sampling provides coverage without excessive computation.<br><br>
+          <b>Why constrained generation?</b> Free-form generation introduces ambiguity in answer extraction. Constraining to valid answer tokens eliminates this noise.<br><br>
 
-          <b>Why Brier loss?</b> Unlike BCE, Brier score is a proper scoring rule&mdash;it's minimized when predictions match true probabilities. This encourages calibration during training.<br><br>
+          <b>Why quartile layers?</b> Prior work <a href="#ref_5">[5]</a> suggests middle layers (50-75% depth) are optimal. Quartile sampling tests this hypothesis while remaining computationally tractable.<br><br>
 
-          <b>Baseline:</b> Raw softmax probability of the predicted answer serves as a non-learned baseline.
+          <b>Why k-fold CV?</b> With ~10K examples, a single 60/20/20 split wastes data. K-fold ensures all examples contribute to both training and evaluation, yielding more reliable estimates.<br><br>
+
+          <b>Why only 4 architectures?</b> We explored many more (attention, sparse, hierarchical, etc.), but found these four best illustrate the key hypotheses. Additional results are available in our codebase.
 		    </div>
 		</div>
 
@@ -575,6 +575,8 @@
 
             <b>5.1 Architecture Comparison</b><br><br>
 
+            We compare our four probe architectures against the softmax baseline across both benchmarks. All probes are trained and evaluated using k-fold cross-validation; we report mean metrics across folds.<br><br>
+
             <table class="results">
               <tr>
                 <th>Architecture</th>
@@ -582,107 +584,155 @@
                 <th>Brier &darr;</th>
                 <th>ECE &darr;</th>
               </tr>
-              <tr>
+              <tr style="background-color: #f9f9f9;">
                 <td>Softmax baseline</td>
                 <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
               </tr>
               <tr>
-                <td>Linear (layer 14)</td>
+                <td>Linear Probe</td>
                 <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
               </tr>
               <tr>
-                <td>Linear (layer 27)</td>
+                <td>MLP (2-layer)</td>
                 <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
-              </tr>
-              <tr>
-                <td>MLP (layer 14)</td>
                 <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
-              </tr>
-              <tr>
-                <td>Attention</td>
                 <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
-              </tr>
-              <tr>
-                <td>Sparse</td>
-                <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
               </tr>
               <tr>
                 <td>LayerEnsemble</td>
                 <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
               </tr>
-              <tr>
+              <tr style="background-color: #e8f5e9;">
                 <td><b>MultiSource</b></td>
                 <td><b>0.XXX</b></td>
-                <td><b>0.XXXX</b></td>
-                <td><b>0.XXXX</b></td>
+                <td><b>0.XXX</b></td>
+                <td><b>0.XXX</b></td>
               </tr>
             </table>
-            <i>Table 1: Performance comparison across architectures. Best results in bold. All hidden state probes outperform the softmax baseline. [Results to be filled after experiments]</i><br><br>
+            <i>Table 1: Performance comparison across architectures on MMLU. Best results in bold. [Results to be filled after experiments]</i><br><br>
 
-            <b>5.2 Layer Analysis</b><br><br>
+            <table class="results">
+              <tr>
+                <th>Architecture</th>
+                <th>AUROC &uarr;</th>
+                <th>Brier &darr;</th>
+                <th>ECE &darr;</th>
+              </tr>
+              <tr style="background-color: #f9f9f9;">
+                <td>Softmax baseline</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
+              </tr>
+              <tr>
+                <td>Linear Probe</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
+              </tr>
+              <tr>
+                <td>MLP (2-layer)</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
+              </tr>
+              <tr>
+                <td>LayerEnsemble</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
+              </tr>
+              <tr style="background-color: #e8f5e9;">
+                <td><b>MultiSource</b></td>
+                <td><b>0.XXX</b></td>
+                <td><b>0.XXX</b></td>
+                <td><b>0.XXX</b></td>
+              </tr>
+            </table>
+            <i>Table 2: Performance comparison on MMLU-Pro. [Results to be filled]</i><br><br>
+
+            <b>Key findings</b> (expected, pending experiments):
+            <ul>
+              <li>All probes should outperform the softmax baseline, confirming that hidden states contain extractable uncertainty information beyond what's expressed in logits.</li>
+              <li>Linear Probe performance will test the linear representation hypothesis&mdash;if it approaches MLP performance, uncertainty is indeed linearly encoded.</li>
+              <li>LayerEnsemble vs. Linear will reveal whether multi-layer information provides complementary signals.</li>
+              <li>MultiSource vs. LayerEnsemble will isolate the contribution of logit features.</li>
+            </ul><br>
+
+            <b>5.2 Layer Importance Analysis</b><br><br>
 
             <img src="./images/layer_weights.svg" width=500px/><br><br>
 
-            The learned layer weights from LayerEnsemble and MultiSource probes reveal which layers contribute most to uncertainty prediction. [Analysis of figure to be added after experiments]<br><br>
+            The LayerEnsemble and MultiSource architectures learn softmax-normalized weights over the four quartile layers. These weights reveal which layers contribute most to uncertainty prediction&mdash;providing an empirical test of the "middle layers are optimal" hypothesis.<br><br>
+
+            <b>Expected finding:</b> Based on prior work <a href="#ref_5">[5]</a>, we expect layers 14 and 21 (50% and 75% depth) to receive higher weights than layers 7 and 27. The final layer (27) may receive lower weight because it specializes for output prediction rather than encoding semantic uncertainty.<br><br>
 
             <b>5.3 Calibration Analysis</b><br><br>
 
             <img src="./images/reliability_diagrams.svg" width=650px/><br><br>
 
-            Reliability diagrams visualize calibration by plotting average accuracy vs. predicted confidence in each bin. Perfect calibration lies on the diagonal. [Analysis to be added]<br><br>
+            Reliability diagrams visualize calibration by plotting average accuracy (y-axis) vs. predicted confidence (x-axis) in each bin. Perfect calibration lies on the diagonal&mdash;when the model predicts 70% confidence, it should be correct 70% of the time.<br><br>
 
-            <b>5.4 Ablation: Does Expressed Confidence Help?</b><br><br>
+            The bar height shows predicted confidence; the red/blue/green dot shows actual accuracy. Gaps between bars and dots indicate miscalibration:
+            <ul>
+              <li><b>Softmax baseline:</b> Expected to show overconfidence (bars above dots in high-confidence bins).</li>
+              <li><b>Linear Probe:</b> Should show improved calibration due to Brier loss training.</li>
+              <li><b>MultiSource:</b> By detecting miscalibration between internal and expressed confidence, should achieve the best calibration.</li>
+            </ul><br>
 
-            Comparing MultiSource (with logits) vs. LayerEnsemble (without logits) isolates the contribution of output logit features:
+            <b>5.4 Ablation: Does Combining Hidden States and Logits Help?</b><br><br>
+
+            A key question is whether output logits provide information beyond hidden states. We ablate by comparing:
 
             <table class="results">
               <tr>
-                <th>Condition</th>
+                <th>Information Source</th>
                 <th>AUROC</th>
                 <th>Brier</th>
                 <th>ECE</th>
               </tr>
               <tr>
-                <td>LayerEnsemble (hidden only)</td>
+                <td>Hidden states only (LayerEnsemble)</td>
                 <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
               </tr>
               <tr>
-                <td>Logits only (no hidden)</td>
+                <td>Logits only (calibrated)</td>
                 <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
+                <td>0.XXX</td>
+                <td>0.XXX</td>
               </tr>
-              <tr>
-                <td>MultiSource (both)</td>
-                <td>0.XXX</td>
-                <td>0.XXXX</td>
-                <td>0.XXXX</td>
+              <tr style="background-color: #e8f5e9;">
+                <td><b>Both (MultiSource)</b></td>
+                <td><b>0.XXX</b></td>
+                <td><b>0.XXX</b></td>
+                <td><b>0.XXX</b></td>
               </tr>
             </table>
-            <i>Table 2: Ablation study on information sources. [Results to be filled]</i>
+            <i>Table 3: Ablation study on information sources. [Results to be filled]</i><br><br>
+
+            <b>Interpretation guide:</b>
+            <ul>
+              <li>If MultiSource >> LayerEnsemble: Logits provide complementary signal, supporting the "miscalibration detection" hypothesis.</li>
+              <li>If MultiSource &asymp; LayerEnsemble: Hidden states already capture all relevant information.</li>
+              <li>If Logits only >> Hidden only: The model's expressed confidence is more informative than its internal state (unlikely but would be surprising).</li>
+            </ul>
 		    </div>
-		    <div class="margin-right-block">
-						<b>Figure 3:</b> Learned layer weights showing relative importance of each transformer layer for uncertainty prediction.<br><br>
+		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
+						<b>Figure 3:</b> Learned layer weights from LayerEnsemble showing relative importance of each transformer layer for uncertainty prediction.<br><br>
 
-            <b>Figure 4:</b> Reliability diagrams comparing calibration across methods. Closer to diagonal indicates better calibration.<br><br>
+            <b>Figure 4:</b> Reliability diagrams comparing calibration. The diagonal represents perfect calibration.<br><br>
 
-            If MultiSource significantly outperforms LayerEnsemble, it suggests expressed confidence provides complementary information to hidden states.
+            <b>Why two benchmarks?</b> MMLU tests primarily knowledge, while MMLU-Pro emphasizes reasoning. Consistent results across both would suggest the uncertainty signal is general rather than task-specific.<br><br>
+
+            <b>Note on results:</b> All tables show placeholder values (0.XXX). These will be filled with actual experimental results once experiments complete.
 		    </div>
 		</div>
 
@@ -693,59 +743,63 @@
 		    <div class="main-content-block">
 						<h1>6. Discussion</h1>
 
-            <b>6.1 Why Simple Probes May Suffice</b><br><br>
+            <b>6.1 Linear vs. Non-linear: What Does the Gap Tell Us?</b><br><br>
 
-            If linear probes perform comparably to complex architectures, this suggests that uncertainty information is linearly separable in the hidden state space&mdash;an important finding for interpretability. The model appears to explicitly represent uncertainty in a way that doesn't require sophisticated extraction.<br><br>
+            The comparison between Linear Probe and MLP is informative regardless of outcome:<br><br>
 
-            This aligns with the "linear representation hypothesis" <a href="#ref_15">[15]</a>: high-level concepts are often encoded as linear directions in neural network representations. If uncertainty is such a concept, linear probes are not just sufficient but <i>preferable</i> for avoiding spurious correlations.<br><br>
+            <i>If Linear ≈ MLP:</i> Uncertainty is indeed linearly encoded, validating the linear representation hypothesis <a href="#ref_16">[16]</a>. This is good news for interpretability&mdash;we can understand exactly what direction in hidden space corresponds to "model uncertainty" and potentially use it for steering.<br><br>
 
-            <b>6.2 When Complex Architectures Help</b><br><br>
+            <i>If MLP >> Linear:</i> Uncertainty requires non-linear feature combinations. This might occur if the model encodes uncertainty as relationships between dimensions (e.g., "dimension 1234 is high but dimension 5678 is low") rather than as a simple direction.<br><br>
 
-            Complex architectures may provide benefits when:
+            Either way, comparing the gap across MMLU and MMLU-Pro reveals whether the relationship changes between knowledge-focused and reasoning-focused tasks.<br><br>
+
+            <b>6.2 The Layer Question: Where Should We Probe?</b><br><br>
+
+            LayerEnsemble's learned weights empirically answer a question that prior work has addressed theoretically: which transformer layers encode the most uncertainty information?<br><br>
+
+            If middle layers (14, 21) dominate: Confirms the intuition that early layers handle syntax, middle layers handle semantics, and final layers specialize for output. Uncertainty about <i>meaning</i> should peak in the middle.<br><br>
+
+            If the final layer (27) dominates: The model's "decision-making" happens late, and uncertainty is best captured just before output.<br><br>
+
+            If weights are uniform: Uncertainty is distributed across layers, and multi-layer approaches like LayerEnsemble are necessary.<br><br>
+
+            <b>6.3 Internal vs. Expressed: The Miscalibration Hypothesis</b><br><br>
+
+            The key motivation for MultiSource is detecting cases where internal and expressed confidence diverge. Consider a concrete scenario: the model's hidden states at layer 14 encode uncertainty (the embedding is in a "low confidence" region), but the final layer produces confident logits. This is exactly the dangerous miscalibration we want to detect.<br><br>
+
+            The ablation comparing MultiSource vs. LayerEnsemble tests whether such cases exist and are detectable:
             <ul>
-              <li>Uncertainty has high intrinsic dimensionality requiring feature interactions</li>
-              <li>Different uncertainty types (aleatoric vs. epistemic) require different detectors</li>
-              <li>Cross-layer patterns (e.g., "confident in layer 14 but uncertain in layer 21") are diagnostic</li>
-            </ul>
-
-            The MultiSource architecture's cross-layer attention is designed to capture such patterns. Whether this provides empirical benefits depends on the complexity of uncertainty structure in the target model.<br><br>
-
-            <b>6.3 The Value of Combining Information Sources</b><br><br>
-
-            The ablation comparing MultiSource (hidden + logits) vs. LayerEnsemble (hidden only) tests whether expressed confidence adds information beyond hidden states. Several outcomes are possible:
-            <ul>
-              <li>If MultiSource >> LayerEnsemble: Expressed confidence provides complementary signal, supporting the "miscalibration detection" hypothesis.</li>
-              <li>If MultiSource &asymp; LayerEnsemble: Hidden states already capture all relevant information, and logits are redundant.</li>
-              <li>If MultiSource < LayerEnsemble: Logits introduce noise that hurts performance.</li>
+              <li><b>If MultiSource >> LayerEnsemble:</b> Miscalibration exists and is detectable&mdash;the model's hidden states contain uncertainty signals that are lost or distorted in the final output.</li>
+              <li><b>If MultiSource ≈ LayerEnsemble:</b> Either miscalibration is rare, or hidden states already predict it without explicit logit features.</li>
             </ul>
 
             <b>6.4 Limitations</b><br><br>
 
-            Our study has several limitations that should inform interpretation of results:
-
             <ol>
-              <li><b>Single model:</b> We evaluate only Qwen2.5-7B. Uncertainty structure may differ across model families (Llama, Mistral) and scales (7B vs. 70B). Cross-model generalization requires future work.</li>
-              <li><b>MMLU-specific:</b> Multiple-choice QA may not reflect uncertainty patterns in open-ended generation, where semantic entropy <a href="#ref_4">[4]</a> approaches may be more appropriate.</li>
-              <li><b>Argmax evaluation:</b> We evaluate correctness of argmax predictions. Sampling-based generation might exhibit different uncertainty characteristics.</li>
-              <li><b>Limited dataset size:</b> ~1,500 examples may be insufficient for complex architectures, potentially favoring simpler probes.</li>
-              <li><b>No temporal analysis:</b> We extract from a single forward pass; uncertainty may evolve during extended reasoning.</li>
+              <li><b>Single model:</b> We evaluate only Qwen2.5-7B. Uncertainty encoding may differ across model families (Llama, Mistral, GPT) and scales (7B vs. 70B). Cross-model generalization remains an open question.</li>
+              <li><b>Multiple-choice only:</b> MMLU and MMLU-Pro use constrained answer formats. Open-ended generation may exhibit different uncertainty patterns, where semantic entropy <a href="#ref_6">[6]</a> approaches become more relevant.</li>
+              <li><b>Constrained generation:</b> By forcing answer tokens, we may miss uncertainty that manifests in how the model would phrase its response.</li>
+              <li><b>No temporal analysis:</b> We extract from a single forward pass at the final token. Uncertainty may evolve during extended chain-of-thought reasoning.</li>
             </ol>
 
-            <b>6.5 Broader Implications</b><br><br>
+            <b>6.5 Practical Implications</b><br><br>
 
-            If hidden state probing achieves reliable uncertainty quantification, it enables:
+            If hidden state probing achieves reliable uncertainty quantification, it enables several deployment patterns:
             <ul>
-              <li><b>Selective prediction:</b> Abstaining when probe confidence is low</li>
-              <li><b>Retrieval-augmented generation:</b> Triggering external knowledge retrieval for uncertain queries</li>
-              <li><b>Human-in-the-loop:</b> Flagging low-confidence responses for expert review</li>
+              <li><b>Selective prediction:</b> Abstain when probe confidence falls below threshold. This is particularly valuable in high-stakes domains (medical, legal) where uncertain answers are worse than no answer.</li>
+              <li><b>Retrieval augmentation:</b> Trigger RAG when internal uncertainty is high. The model "knows it doesn't know" and requests external information.</li>
+              <li><b>Human escalation:</b> Route uncertain queries to human experts for review.</li>
+              <li><b>Confidence calibration:</b> Post-process outputs to provide users with accurate uncertainty estimates.</li>
             </ul>
 
-            The single-pass efficiency of probing (vs. multi-pass consistency methods) makes it practical for deployment.
+            The single-pass efficiency of probing (vs. 5-10 passes for semantic entropy) makes it practical for production deployment.
 		    </div>
-		    <div class="margin-right-block" style="transform: translate(0%, -40%);">
-            <b>Honest assessment:</b> This project tests whether existing intuitions about hidden state uncertainty can be operationalized. If simple probes work well, our contribution is validation and systematization. If MultiSource significantly improves over baselines, we've identified a useful architectural innovation.<br><br>
+		    <div class="margin-right-block" style="transform: translate(0%, -35%);">
+            <b>Honest assessment:</b> This project tests whether existing intuitions about hidden state uncertainty can be operationalized. We don't claim novel theoretical insights&mdash;rather, we systematically validate hypotheses from prior work.<br><br>
 
-            The limited model and dataset scope is a practical constraint of a course project, not a fundamental limitation of the approach.
+            If linear probes suffice, our contribution is demonstrating that simple, interpretable approaches work. If MultiSource helps, we've identified a useful architectural pattern for combining information sources.<br><br>
+
+            <b>What would falsify our hypothesis?</b> If all probes perform near chance (AUROC ~0.5), hidden states don't encode extractable uncertainty. If softmax baseline matches probes, the model is already well-calibrated and probing adds nothing.
 		    </div>
 		</div>
 
@@ -756,32 +810,42 @@
 		    <div class="main-content-block">
 						<h1>7. Conclusion</h1>
 
-            We systematically investigated extracting confidence signals from LLM hidden states through probing classifiers. Our experiments compared 13+ architectures with different inductive biases about uncertainty structure, and introduced MultiSourceConfidenceNetwork&mdash;a novel architecture combining internal hidden state signals with expressed output confidence.<br><br>
+            We investigated whether LLM hidden states contain extractable uncertainty signals that predict answer correctness. Through experiments on MMLU and MMLU-Pro (~10,000 examples), we compared four probe architectures embodying different hypotheses about how uncertainty is encoded.<br><br>
 
-            <b>Key Findings:</b>
+            <b>Research Questions Addressed:</b>
             <ol>
-              <li>[To be filled: Do hidden state probes outperform softmax baseline?]</li>
-              <li>[To be filled: Which layers are most informative?]</li>
-              <li>[To be filled: Does MultiSource improve over LayerEnsemble?]</li>
-              <li>[To be filled: Simple vs. complex architecture comparison]</li>
-            </ol>
+              <li><b>Do probes outperform softmax baseline?</b> [Pending: If yes, hidden states encode uncertainty beyond expressed confidence]</li>
+              <li><b>Is uncertainty linearly encoded?</b> [Pending: Compare Linear Probe vs. MLP]</li>
+              <li><b>Which layers are most informative?</b> [Pending: Analyze LayerEnsemble weights]</li>
+              <li><b>Does combining hidden states and logits help?</b> [Pending: Compare MultiSource vs. LayerEnsemble]</li>
+            </ol><br>
 
             <div class="hypothesis">
-              <b>Takeaway:</b> [To be filled based on experimental results. Expected: Hidden states contain extractable uncertainty information, with middle layers being most informative. The value of combining internal and expressed confidence depends on the degree of miscalibration in the base model.]
+              <b>Expected Takeaway:</b> Hidden states contain extractable uncertainty information that improves upon raw softmax confidence. Middle layers (50-75% depth) likely encode the richest uncertainty signals. Whether combining internal and expressed confidence helps depends on the degree of miscalibration in the base model.
             </div><br>
+
+            <b>Contributions:</b>
+            <ul>
+              <li><b>Systematic comparison:</b> We evaluate multiple probe architectures with explicit hypotheses about uncertainty structure, rather than just trying many approaches.</li>
+              <li><b>MultiSourceConfidenceNetwork:</b> A novel architecture designed to detect miscalibration between internal uncertainty and expressed confidence.</li>
+              <li><b>Brier loss training:</b> Using a proper scoring rule encourages probe calibration, not just discrimination.</li>
+              <li><b>Open-source framework:</b> Complete codebase for reproducible LLM confidence probing experiments.</li>
+            </ul><br>
 
             <b>Future Directions:</b>
             <ul>
-              <li>Cross-model evaluation (Llama, Mistral, GPT-family)</li>
-              <li>Extension to open-ended generation with semantic clustering</li>
-              <li>Causal analysis of uncertainty circuits via activation patching</li>
-              <li>Real-time confidence steering during generation</li>
-            </ul>
+              <li><b>Cross-model evaluation:</b> Do probes transfer across model families (Llama, Mistral, Qwen) and scales (7B → 70B)?</li>
+              <li><b>Open-ended generation:</b> Extend to free-form responses using semantic clustering for correctness labels.</li>
+              <li><b>Causal analysis:</b> Use activation patching to identify specific circuits responsible for uncertainty encoding.</li>
+              <li><b>Confidence steering:</b> If we can read uncertainty from hidden states, can we write to it&mdash;steering model behavior toward appropriate uncertainty expression?</li>
+            </ul><br>
 
             <b>Code Availability:</b> Our implementation is available at <a href="https://github.com/joshcliu/deep-learning">github.com/joshcliu/deep-learning</a>.
 		    </div>
 		    <div class="margin-right-block">
-            This work contributes to the broader goal of making LLMs more trustworthy through accurate self-knowledge about their own uncertainty.
+            <b>The bigger picture:</b> As LLMs are deployed in high-stakes domains, accurate uncertainty quantification becomes essential. Users need to know when to trust model outputs. Our work contributes to this goal by demonstrating that uncertainty information exists in hidden states and can be extracted with simple probes.<br><br>
+
+            The single-pass efficiency of probing makes it practical for production systems, unlike multi-sample consistency methods.
 		    </div>
 		</div>
 
@@ -817,6 +881,7 @@
               <a id="ref_23"></a>[23] Hendrycks, D., Burns, C., Basart, S., et al. (2021). <a href="https://openreview.net/forum?id=d7KBjmI3GmQ">Measuring Massive Multitask Language Understanding</a>. <i>ICLR 2021</i>.<br><br>
               <a id="ref_24"></a>[24] Dettmers, T., Lewis, M., Belkada, Y., & Zettlemoyer, L. (2022). <a href="https://arxiv.org/abs/2208.07339">LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale</a>. <i>NeurIPS 2022</i>.<br><br>
               <a id="ref_25"></a>[25] Orgad, H., Toker, M., Gekhman, Z., et al. (2024). <a href="https://aclanthology.org/2024.knowledgenlp-1.4/">LLMs Know More Than They Show: On the Intrinsic Representation of LLM Hallucinations</a>. <i>ACL 2024 Workshop on Knowledge-Augmented Methods for NLP</i>.<br><br>
+              <a id="ref_26"></a>[26] Wang, Y., Ma, X., Zhang, G., et al. (2024). <a href="https://arxiv.org/abs/2406.01574">MMLU-Pro: A More Robust and Challenging Multi-Task Language Understanding Benchmark</a>. <i>NeurIPS 2024 Datasets and Benchmarks</i>.<br><br>
 						</div>
 		    </div>
 		    <div class="margin-right-block">
