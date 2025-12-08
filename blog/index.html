@@ -193,7 +193,7 @@
           </div>
 				</div>
 		    <div class="main-content-block">
-            <img src="./images/overview_diagram.png" width=700px/>
+            <img src="./images/overview_diagram.svg" width=700px/>
 		    </div>
 		    <div class="margin-right-block">
 						<b>Figure 1:</b> Overview of our confidence probing pipeline. Hidden states from multiple transformer layers are extracted and combined with output logits to predict whether the model's answer is correct.
@@ -531,7 +531,7 @@
 
             <b>4.2 Architecture</b><br><br>
 
-            <img src="./images/architecture_diagram.png" width=650px/><br><br>
+            <img src="./images/architecture_diagram.svg" width=650px/><br><br>
 
             MultiSourceConfidenceNetwork processes inputs through four components:
 
@@ -635,13 +635,13 @@
 
             <b>5.2 Layer Analysis</b><br><br>
 
-            <img src="./images/layer_weights.png" width=500px/><br><br>
+            <img src="./images/layer_weights.svg" width=500px/><br><br>
 
             The learned layer weights from LayerEnsemble and MultiSource probes reveal which layers contribute most to uncertainty prediction. [Analysis of figure to be added after experiments]<br><br>
 
             <b>5.3 Calibration Analysis</b><br><br>
 
-            <img src="./images/reliability_diagrams.png" width=650px/><br><br>
+            <img src="./images/reliability_diagrams.svg" width=650px/><br><br>
 
             Reliability diagrams visualize calibration by plotting average accuracy vs. predicted confidence in each bin. Perfect calibration lies on the diagonal. [Analysis to be added]<br><br>
 
