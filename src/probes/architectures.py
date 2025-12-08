@@ -932,6 +932,199 @@ def build_layer_ensemble_network(
 
 
 # =============================================================================
+# SPARSE-ATTENTION-MULTIHEAD HYBRID
+# =============================================================================
+# Combines three key ideas:
+# 1. Sparse: Not all dimensions are equally informative - learn importance weights
+# 2. Attention: Relationships between different regions of hidden state matter
+# 3. MultiHead: Different experts capture different aspects of uncertainty
+
+
+class SparseAttentionMultiHeadNetwork(nn.Module):
+    """Hybrid probe combining sparse weighting, attention, and multi-head prediction.
+
+    Architecture flow:
+    1. Sparse weighting: Learn which dimensions are important (differentiable)
+    2. Chunking: Split weighted input into chunks (like tokens)
+    3. Self-attention: Capture relationships between chunks
+    4. Multi-head prediction: Multiple expert heads make predictions
+    5. Gated aggregation: Learn to combine expert predictions based on input
+
+    This addresses multiple hypotheses about how uncertainty is encoded:
+    - Not all dimensions matter equally (sparse)
+    - Relationships between hidden state regions encode information (attention)
+    - Different aspects of uncertainty need different detectors (multi-head)
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        num_chunks: int = 16,
+        num_attention_heads: int = 4,
+        num_expert_heads: int = 4,
+        expert_hidden_dim: int = 64,
+        temperature: float = 1.0,
+        dropout: float = 0.1,
+    ):
+        super().__init__()
+        assert input_dim % num_chunks == 0, "input_dim must be divisible by num_chunks"
+
+        self.input_dim = input_dim
+        self.num_chunks = num_chunks
+        self.chunk_dim = input_dim // num_chunks
+        self.num_expert_heads = num_expert_heads
+        self.temperature = temperature
+
+        # === SPARSE COMPONENT ===
+        # Learnable importance weights for each dimension
+        self.importance = nn.Parameter(torch.zeros(input_dim))
+
+        # === ATTENTION COMPONENT ===
+        # Project chunks to attention dimension
+        self.chunk_proj = nn.Linear(self.chunk_dim, self.chunk_dim)
+
+        # Multi-head self-attention over chunks
+        self.attention = nn.MultiheadAttention(
+            embed_dim=self.chunk_dim,
+            num_heads=num_attention_heads,
+            dropout=dropout,
+            batch_first=True,
+        )
+
+        self.attention_norm = nn.LayerNorm(self.chunk_dim)
+
+        # === MULTI-HEAD EXPERT COMPONENT ===
+        # Each expert head processes the attended features differently
+        self.expert_heads = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(self.chunk_dim, expert_hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(expert_hidden_dim, 1),
+            )
+            for _ in range(num_expert_heads)
+        ])
+
+        # === GATED AGGREGATION ===
+        # Input-dependent gating to combine expert predictions
+        self.gate = nn.Sequential(
+            nn.Linear(self.chunk_dim, num_expert_heads),
+            nn.Softmax(dim=-1),
+        )
+
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch_size = x.shape[0]
+
+        # === SPARSE WEIGHTING ===
+        # Apply learned dimension importance (differentiable soft selection)
+        weights = torch.sigmoid(self.importance / self.temperature)
+        x_weighted = x * weights.unsqueeze(0)
+
+        # === CHUNKING + ATTENTION ===
+        # Reshape to chunks: (batch, num_chunks, chunk_dim)
+        chunks = x_weighted.view(batch_size, self.num_chunks, self.chunk_dim)
+
+        # Project chunks
+        chunks_proj = self.chunk_proj(chunks)
+        chunks_proj = self.dropout(chunks_proj)
+
+        # Self-attention over chunks
+        attn_out, _ = self.attention(chunks_proj, chunks_proj, chunks_proj)
+        attn_out = self.attention_norm(attn_out + chunks_proj)  # Residual connection
+
+        # Global representation: mean pool attended chunks
+        global_repr = attn_out.mean(dim=1)  # (batch, chunk_dim)
+
+        # === MULTI-HEAD EXPERT PREDICTION ===
+        # Each expert makes a prediction
+        expert_logits = []
+        for expert in self.expert_heads:
+            logit = expert(global_repr)  # (batch, 1)
+            expert_logits.append(logit)
+
+        # Stack expert predictions: (batch, num_experts)
+        expert_logits = torch.cat(expert_logits, dim=-1)
+
+        # === GATED AGGREGATION ===
+        # Compute input-dependent weights for experts
+        gate_weights = self.gate(global_repr)  # (batch, num_experts)
+
+        # Weighted combination of expert predictions
+        aggregated_logit = (expert_logits * gate_weights).sum(dim=-1, keepdim=True)
+
+        # Final confidence
+        confidence = torch.sigmoid(aggregated_logit)
+
+        return confidence
+
+    def get_importance_scores(self) -> torch.Tensor:
+        """Get learned dimension importance scores."""
+        return torch.sigmoid(self.importance / self.temperature).detach()
+
+    def get_top_k_dimensions(self, k: int = 50) -> torch.Tensor:
+        """Get indices of top-k most important dimensions."""
+        _, indices = torch.topk(self.importance, k)
+        return indices
+
+
+def build_sparse_attention_multihead_network(
+    input_dim: int,
+    num_chunks: int = 16,
+    num_attention_heads: int = 4,
+    num_expert_heads: int = 4,
+    expert_hidden_dim: int = 64,
+    temperature: float = 1.0,
+    dropout: float = 0.1,
+) -> nn.Module:
+    """Build hybrid sparse-attention-multihead probe network.
+
+    Combines three complementary inductive biases:
+    1. Sparse: Learns which hidden dimensions are most informative
+    2. Attention: Captures relationships between different regions
+    3. MultiHead: Multiple experts specialize in different uncertainty aspects
+
+    Args:
+        input_dim: Hidden state dimension (must be divisible by num_chunks).
+        num_chunks: Number of chunks to split hidden state into (default: 16).
+        num_attention_heads: Number of attention heads (default: 4).
+        num_expert_heads: Number of prediction expert heads (default: 4).
+        expert_hidden_dim: Hidden dimension within each expert (default: 64).
+        temperature: Temperature for sparse sigmoid (lower = sharper, default: 1.0).
+        dropout: Dropout probability (default: 0.1).
+
+    Returns:
+        Network that maps (batch, input_dim) -> (batch, 1).
+
+    Example:
+        >>> from src.probes import CalibratedProbe
+        >>> from src.probes.architectures import build_sparse_attention_multihead_network
+        >>>
+        >>> network = build_sparse_attention_multihead_network(
+        ...     input_dim=4096,
+        ...     num_chunks=16,
+        ...     num_expert_heads=4
+        ... )
+        >>> probe = CalibratedProbe(network=network)
+        >>> probe.fit(X_train, y_train, X_val, y_val)
+        >>>
+        >>> # Analyze learned importance
+        >>> importance = probe.network.get_importance_scores()
+        >>> top_dims = probe.network.get_top_k_dimensions(k=20)
+    """
+    return SparseAttentionMultiHeadNetwork(
+        input_dim=input_dim,
+        num_chunks=num_chunks,
+        num_attention_heads=num_attention_heads,
+        num_expert_heads=num_expert_heads,
+        expert_hidden_dim=expert_hidden_dim,
+        temperature=temperature,
+        dropout=dropout,
+    )
+
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
@@ -948,6 +1141,7 @@ __all__ = [
     "build_contrastive_network",
     "build_hierarchical_network",
     "build_layer_ensemble_network",
+    "build_sparse_attention_multihead_network",
     # Network classes (for customization)
     "ChunkedSelfAttention",
     "ResidualBlock",
@@ -959,4 +1153,5 @@ __all__ = [
     "ContrastiveProbe",
     "HierarchicalNetwork",
     "LayerEnsembleNetwork",
+    "SparseAttentionMultiHeadNetwork",
 ]
