@@ -16,10 +16,10 @@ from .base import BaseDataset, DatasetExample
 class MMLUProDataset(BaseDataset):
     """
     MMLU-Pro: A More Robust and Challenging Multi-Task Language Understanding Benchmark
-
+    
     Paper: https://arxiv.org/abs/2406.01574
     HuggingFace: https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro
-
+    
     Key differences from MMLU:
     - 10 answer choices (A-J) instead of 4
     - Harder questions requiring more reasoning
@@ -29,7 +29,7 @@ class MMLUProDataset(BaseDataset):
     def __init__(self, split: str = "test", category: Optional[str] = None):
         """
         Initialize MMLU-Pro dataset.
-
+        
         Args:
             split: Dataset split ("test" or "validation")
             category: Optional category filter. Available categories:
@@ -48,18 +48,21 @@ class MMLUProDataset(BaseDataset):
                      - health
                      - computer science
         """
-        self.split = split
         self.category = category
+        super().__init__(split=split)
+        # Keep alias for existing code paths that expect .examples
+        self.examples = self.data
 
-        # Load from HuggingFace
+    def _load_data(self) -> List[DatasetExample]:
+        """Load and process MMLU-Pro from HuggingFace."""
         # MMLU-Pro only has 'test' and 'validation' splits
-        dataset = load_dataset("TIGER-Lab/MMLU-Pro", split=split)
+        dataset = load_dataset("TIGER-Lab/MMLU-Pro", split=self.split)
 
         # Filter by category if specified
-        if category:
-            dataset = dataset.filter(lambda x: x["category"] == category)
+        if self.category:
+            dataset = dataset.filter(lambda x: x["category"] == self.category)
 
-        self.examples = []
+        examples: List[DatasetExample] = []
         for item in dataset:
             example = DatasetExample(
                 question=item["question"],
@@ -71,24 +74,13 @@ class MMLUProDataset(BaseDataset):
                     "source": "mmlu_pro"
                 }
             )
-            self.examples.append(example)
-
-    def __len__(self) -> int:
-        return len(self.examples)
-
-    def __getitem__(self, idx: int) -> DatasetExample:
-        return self.examples[idx]
-
-    def sample(self, n: int, seed: Optional[int] = None) -> List[DatasetExample]:
-        """Sample n examples randomly."""
-        if seed is not None:
-            random.seed(seed)
-        return random.sample(self.examples, min(n, len(self.examples)))
+            examples.append(example)
+        return examples
 
     def get_categories(self) -> List[str]:
         """Get list of unique categories."""
-        return sorted(set(ex.metadata["category"] for ex in self.examples))
+        return sorted(set(ex.metadata["category"] for ex in self.data))
 
     def filter_by_category(self, category: str) -> List[DatasetExample]:
         """Get all examples from a specific category."""
-        return [ex for ex in self.examples if ex.metadata["category"] == category]
+        return [ex for ex in self.data if ex.metadata["category"] == category]
