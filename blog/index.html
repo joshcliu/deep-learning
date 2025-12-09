@@ -538,24 +538,6 @@
                 <th style="width: 15%">Parameters</th>
               </tr>
               <tr>
-                <td><b>AttentionProbe</b></td>
-                <td><b>Hypothesis:</b> Different "regions" of the hidden state encode different information.<br><br>
-                Splits hidden state into chunks, applies self-attention to learn which regions are most relevant for uncertainty. Uses 4-head multi-head attention over 16 chunks.</td>
-                <td>~50K</td>
-              </tr>
-              <tr>
-                <td><b>ResidualProbe</b></td>
-                <td><b>Hypothesis:</b> The relationship between hidden state and correctness is complex and non-linear.<br><br>
-                Deep MLP with skip connections (3 residual blocks). Tests whether deeper networks with pre-norm architecture can capture complex uncertainty patterns.</td>
-                <td>~800K</td>
-              </tr>
-              <tr>
-                <td><b>BottleneckProbe</b></td>
-                <td><b>Hypothesis:</b> The uncertainty signal is low-rank and can be extracted via compression.<br><br>
-                Autoencoder-style architecture that compresses hidden state to 64-dim bottleneck, forcing extraction of most salient features. Tests whether uncertainty is low-dimensional.</td>
-                <td>~300K</td>
-              </tr>
-              <tr>
                 <td><b>SparseProbe</b></td>
                 <td><b>Hypothesis:</b> The uncertainty signal is concentrated in a small subset of dimensions.<br><br>
                 Learns importance weights for each dimension via differentiable soft weighting. Can identify top-k most informative dimensions for interpretability.</td>
@@ -569,49 +551,6 @@
               </tr>
             </table><br>
 
-            <b>Multi-Component Architectures (Combining Multiple Mechanisms)</b><br><br>
-
-            <table class="results">
-              <tr>
-                <th style="width: 20%">Architecture</th>
-                <th style="width: 65%">Hypothesis & Description</th>
-                <th style="width: 15%">Parameters</th>
-              </tr>
-              <tr>
-                <td><b>MultiHeadProbe</b></td>
-                <td><b>Hypothesis:</b> Different aspects of uncertainty are captured by different "expert" heads.<br><br>
-                4 independent expert heads make predictions, then a gating mechanism learns input-dependent weights to combine them. Tests whether ensemble of specialists outperforms single predictor.</td>
-                <td>~60K</td>
-              </tr>
-              <tr>
-                <td><b>GatedProbe</b></td>
-                <td><b>Hypothesis:</b> Gating mechanisms can filter irrelevant dimensions.<br><br>
-                Uses GLU-style (Gated Linear Unit) activations: linear(x) * sigmoid(gate(x)). Learns which parts of the hidden state to focus on for uncertainty.</td>
-                <td>~200K</td>
-              </tr>
-              <tr>
-                <td><b>BilinearProbe</b></td>
-                <td><b>Hypothesis:</b> Uncertainty is encoded in relationships between hidden state regions.<br><br>
-                Explicitly models bilinear feature interactions via low-rank factorization. Splits input in half and computes interactions: x₁ᵀWx₂ where W = UVᵀ. Tests whether uncertainty requires comparing different parts of the representation.</td>
-                <td>~150K</td>
-              </tr>
-            </table><br>
-
-            <b>Uncertainty Quantification Architectures</b><br><br>
-
-            <table class="results">
-              <tr>
-                <th style="width: 20%">Architecture</th>
-                <th style="width: 65%">Hypothesis & Description</th>
-                <th style="width: 15%">Parameters</th>
-              </tr>
-              <tr>
-                <td><b>HeteroscedasticProbe</b></td>
-                <td><b>Hypothesis:</b> Different examples have different inherent uncertainty (aleatoric).<br><br>
-                Predicts both mean confidence and per-example variance. Uses two heads: mean_head for confidence logit and logvar_head for uncertainty. Final prediction adjusts for variance using probit approximation.</td>
-                <td>~70K</td>
-              </tr>
-            </table><br>
 
             <b>Multi-Layer Architectures (Combining Information Across Layers)</b><br><br>
 
@@ -635,11 +574,11 @@
               </tr>
             </table><br>
 
-            <b>Design Philosophy:</b> We organize architectures by hypothesis to systematically test different assumptions about uncertainty encoding. Linear Probe and MLP Probe test linearity. Attention/Sparse/Hierarchical test structural hypotheses about how information is organized. BilinearProbe tests feature interactions. HeteroscedasticProbe tests per-example uncertainty. Ensemble and Fusion test multi-layer hypotheses. In our results (Section 5), we focus on the 4 most informative architectures (Linear, MLP, Ensemble, Fusion) that best illustrate the key findings, but all 13 architectures were evaluated.<br><br>
+            <b>Design Philosophy:</b> We organize architectures by hypothesis to systematically test different assumptions about uncertainty encoding. Linear Probe and MLP Probe test linearity. Sparse/Hierarchical test structural hypotheses about how information is organized. Ensemble and Fusion test multi-layer hypotheses. In our results (Section 5), we focus on the 4 most informative architectures (Linear, MLP, Ensemble, Fusion) that best illustrate the key findings, but all 6 architectures were evaluated.<br><br>
 
             <b>3.7 Evaluation Metrics</b><br><br>
 
-            We evaluate probes on three complementary metrics that capture different aspects of uncertainty quantification:<br><br>
+            We evaluate probes on three complementary metrics that capture different aspects of uncertainty quantification:
             
             <ul>
               <li><b>AUROC</b> (Area Under ROC Curve): Measures <i>discrimination</i>, the ability to rank correct answers higher than incorrect ones. Ranges from 0 to 1, where 0.5 indicates random performance and 1.0 is perfect. This metric ignores calibration and focuses purely on relative ordering.</li>
@@ -712,7 +651,7 @@
 
           <b>Why k-fold CV?</b> With ~10K examples, a single 60/20/20 split wastes data. K-fold ensures all examples contribute to both training and evaluation, yielding more reliable estimates.<br><br>
 
-          <b>Why 13 architectures?</b> We systematically test different hypotheses about uncertainty encoding. Each architecture embodies a specific inductive bias: linearity (Linear/MLP), regional importance (Attention), compression (Bottleneck), sparsity (Sparse), hierarchy (Hierarchical), feature interactions (Bilinear), per-example uncertainty (Heteroscedastic), multi-layer fusion (Ensemble/Fusion). This comprehensive comparison reveals which assumptions hold in practice.
+          <b>Why 6 architectures?</b> We systematically test different hypotheses about uncertainty encoding. Each architecture embodies a specific inductive bias: linearity (Linear/MLP), sparsity (Sparse), hierarchy (Hierarchical), multi-layer fusion (Ensemble/Fusion). This comprehensive comparison reveals which assumptions hold in practice.
 		    </div>
 		</div>
 
@@ -939,12 +878,6 @@
               <li><b>BilinearProbe:</b> Explicit feature interactions (x₁ᵀWx₂) didn't help, providing strong evidence that uncertainty doesn't require comparing different parts of the representation. It exists as a direction, not a relationship.</li>
             </ul><br>
 
-            <b>Promising alternatives (competitive with Linear Probe):</b>
-            <ul>
-              <li><b>BottleneckProbe:</b> Compression to 64 dimensions achieved similar performance to linear probes, supporting the hypothesis that uncertainty is low-rank. This is consistent with it being a single direction.</li>
-              <li><b>SparseProbe:</b> Learning dimension importance weights matched linear probe performance and provided interpretability: which dimensions encode uncertainty? Top dimensions aligned with prior findings about semantic features.</li>
-              <li><b>HeteroscedasticProbe:</b> Predicting per-example uncertainty (aleatoric) showed slight improvements on hard examples, suggesting that some questions are inherently more uncertain than others, independent of the model's knowledge.</li>
-            </ul><br>
 
             <b>Complex architectures (diminishing returns):</b>
             <ul>
