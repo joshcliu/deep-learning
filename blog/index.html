@@ -214,8 +214,6 @@
             In this work, we take a systematic probing-based approach to these questions, comparing linear and nonlinear probes across layers and models, and exploring how internal signals interact with output-based confidence.
 		    </div>
 		    <div class="margin-right-block">
-						The hallucination problem is particularly insidious because users cannot easily distinguish confident correct responses from confident incorrect ones without external verification.<br><br>
-
             <b>Why does this matter?</b> Reliable uncertainty estimates enable selective prediction (abstaining on hard cases), retrieval augmentation (calling external knowledge when needed), and human-in-the-loop workflows (routing dubious answers to experts), making LLMs safer and more trustworthy in real-world use.
 		    </div>
 		</div>
@@ -704,9 +702,7 @@
             
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -45%);">
-          <b>Why MMLU?</b> MMLU spans 57 diverse subjects, allowing us to test whether uncertainty signals generalize across domains (STEM vs humanities) and task types (knowledge recall vs reasoning).<br><br>
-
-          <b>Why constrained generation?</b> Free-form generation introduces ambiguity in answer extraction. Constraining to valid answer tokens eliminates this noise.<br><br>
+          <b>Why constrained generation?</b> Free-form generation introduces ambiguity in answer extraction. Constraining to valid answer tokens eliminates this noise.<br><br><br><br>
 
           <b>Why quartile layers?</b> Prior work <a href="#ref_5">[5]</a> suggests middle layers (50-75% depth) are optimal. Quartile sampling tests this hypothesis while remaining computationally tractable.<br><br>
 
@@ -728,7 +724,7 @@
             Our key insight is that a model's <i>internal uncertainty</i> (encoded in hidden states) may differ from its <i>expressed confidence</i> (output logits). This divergence represents a critical gap that prior probing work has largely ignored. Most existing probes use only hidden states, implicitly assuming that internal representations capture all relevant uncertainty information. However, the model's final output layer may distort or lose uncertainty signals during the mapping from hidden states to logits.<br><br>
 
             Consider two failure modes that our architecture is designed to detect:
-            <ul>
+           <ul>
               <li><b>Overconfidence:</b> The model outputs high-confidence logits despite internally uncertain hidden states. This represents dangerous miscalibration, exactly the type of case where hallucination detection is most critical. The model "knows it doesn't know" internally, but this uncertainty is lost by the final layers.</li>
               <li><b>Underconfidence:</b> The model outputs low-confidence logits despite internally confident hidden states. This represents missed opportunities: the model is actually certain but fails to express it, leading to unnecessary abstention or retrieval augmentation.</li>
             </ul>
