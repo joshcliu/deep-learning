@@ -3,6 +3,10 @@
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 
+<!-- MathJax for consistent math rendering across browsers -->
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js"></script>
+
 <link rel="shortcut icon" href="images/icon.ico">
 <style type="text/css">
 	body {
@@ -289,7 +293,7 @@
 
           A model is calibrated if its confidence matches its accuracy: when it predicts 70% confidence, it should be correct 70% of the time. This property is crucial for downstream applications. Users need to know when to trust model outputs.<br><br>
 
-          Guo et al. <a href="#ref_19">[19]</a> revealed that modern neural networks are often poorly calibrated, tending toward overconfidence. Their work introduced temperature scaling, a simple post-hoc fix that rescales logits, and popularized Expected Calibration Error (ECE) as a metric:<br>
+          Guo et al. <a href="#ref_19">[19]</a> revealed that modern neural networks are often poorly calibrated, tending toward overconfidence. Their work introduced temperature scaling, a simple post-hoc fix that rescales logits, and popularized Expected Calibration Error (ECE) as a metric:<br><br>
           <center>
             <math xmlns="http://www.w3.org/1998/Math/MathML">
               <mrow>
@@ -315,7 +319,7 @@
 
           ECE bins predictions by confidence and computes the average gap between predicted confidence and observed accuracy. A perfectly calibrated model has ECE = 0. However, ECE has limitations. A model predicting constant 50% confidence on a 50% accuracy task achieves perfect ECE despite providing no useful information.<br><br>
 
-          The Brier score <a href="#ref_20">[20]</a> addresses this as a proper scoring rule. It's uniquely minimized when predictions equal true probabilities:
+          The Brier score <a href="#ref_20">[20]</a> addresses this as a proper scoring rule. It's uniquely minimized when predictions equal true probabilities:<br><br>
           <center>
             <math xmlns="http://www.w3.org/1998/Math/MathML">
               <mrow>
@@ -382,7 +386,7 @@
 
             <b>3.1 Problem Formulation</b><br><br>
 
-            Given an LLM M, a question q, and the model's generated answer a, we aim to predict whether a is correct. Formally, let h<sup>(l)</sup> &in; &#x211D;<sup>d</sup> denote the hidden state at layer l, and let z &in; &#x211D;<sup>K</sup> denote the output logits for K answer choices. We train a probe f<sub>&theta;</sub> to predict:
+            Given an LLM M, a question q, and the model's generated answer a, we aim to predict whether a is correct. Formally, let h<sup>(l)</sup> &in; &#x211D;<sup>d</sup> denote the hidden state at layer l, and let z &in; &#x211D;<sup>K</sup> denote the output logits for K answer choices. We train a probe f<sub>&theta;</sub> to predict:<br><br>
             <center>
               <math xmlns="http://www.w3.org/1998/Math/MathML">
                 <mrow>
