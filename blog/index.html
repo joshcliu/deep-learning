@@ -214,23 +214,19 @@
             Yet despite these promising signals, there's a gap between knowing that uncertainty information exists somewhere in the model and understanding how to optimally extract it. Most prior work uses simple linear probes on single layers. But what if uncertainty is distributed across layers? What if the relationship between hidden states and confidence is non-linear? And crucially, what if the model's internal uncertainty diverges from its expressed confidence, creating a dangerous miscalibration?<br><br>
 
             <b>Our Contributions:</b><br><br>
-            We address these questions through systematic experimentation:
-            <ol>
-              <li><b>Comprehensive architecture comparison:</b> We evaluate 13 probe architectures with different inductive biases, from simple linear classifiers (4K parameters) to complex hierarchical networks with attention mechanisms (800K parameters), testing which assumptions about uncertainty structure hold in practice. Architectures tested: Linear, MLP, Attention, Residual, Bottleneck, Sparse, Hierarchical, MultiHead, Gated, Bilinear, Heteroscedastic, Ensemble, and Fusion.</li>
-              <li><b>Fusion Probe:</b> We introduce a novel architecture that combines hidden states from multiple transformer layers with output logit features. This design can detect miscalibration, cases where internal uncertainty and expressed confidence disagree.</li>
-              <li><b>Layer importance analysis:</b> Through learned attention weights, we empirically validate which layers contribute most to uncertainty prediction, testing the "middle layers are optimal" hypothesis.</li>
-              <li><b>Open-source framework:</b> We release our complete codebase for reproducible LLM confidence probing experiments.</li>
-            </ol><br>
-
-            Figure 1 shows our overall pipeline: we extract hidden states from multiple transformer layers, combine them with output logits, and train a probe to predict whether the model's answer is correct.<br><br>
-
-            <img src="./images/overview_diagram.svg" width=700px/><br>
-            <center><b>Figure 1:</b> Overview of our confidence probing pipeline. Hidden states from multiple transformer layers are extracted and combined with output logits to predict whether the model's answer is correct.</center>
+				We address these questions through systematic experimentation:
+				<ol>
+				<li><b>Architecture comparison:</b> We test whether uncertainty is linearly separable in hidden space by comparing linear probes against MLPs and attention-based networks, with direct implications for interpretability.</li>
+				
+				<li><b>Cross-model evaluation:</b> We evaluate all architectures across Qwen2.5-7B, Mistral-7B, and Llama-3-8B to test whether uncertainty encoding generalizes across model families.</li>
+				
+				<li><b>MultiSourceConfidenceNetwork:</b> We introduce an architecture that fuses hidden states with output logits, testing whether internal representations and expressed confidence provide complementary information or reveal miscalibration.</li>
+				
+				<li><b>Layer importance analysis:</b> Through learned attention weights, we identify which transformer layers encode the strongest uncertainty signals.</li>
+				</ol>
 		    </div>
 		    <div class="margin-right-block">
 						The hallucination problem is particularly insidious because users cannot easily distinguish confident correct responses from confident incorrect ones without external verification.<br><br>
-
-            A 2024 Nature study <a href="#ref_6">[6]</a> found semantic entropy can detect "confabulations" but requires 5-10 forward passes per query. Our approach extracts uncertainty from a single pass.<br><br>
 
             <b>Why does this matter?</b> If we can reliably detect when models are uncertain, we enable selective prediction (abstaining on hard cases), retrieval augmentation (fetching external knowledge when needed), and human-in-the-loop systems (flagging responses for expert review).
 		    </div>
