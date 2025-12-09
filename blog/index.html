@@ -222,18 +222,19 @@
             Yet despite these promising signals, there's a gap between knowing that uncertainty information <i>exists</i> somewhere in the model and understanding <i>how to optimally extract it</i>. Most prior work uses simple linear probes on single layers. But what if uncertainty is distributed across layers? What if the relationship between hidden states and confidence is non-linear? And crucially, what if the model's internal uncertainty diverges from its expressed confidence&mdash;creating a dangerous miscalibration?<br><br>
 
             <b>Our Contributions:</b><br><br>
-            We address these questions through systematic experimentation:
-            <ol>
-              <li><b>Comprehensive architecture comparison:</b> We evaluate 8+ probe architectures with different inductive biases&mdash;from simple linear classifiers to attention-based networks&mdash;testing which assumptions about uncertainty structure hold in practice.</li>
-              <li><b>MultiSourceConfidenceNetwork:</b> We introduce a novel architecture that combines hidden states from multiple transformer layers with output logit features. This design can detect <i>miscalibration</i>&mdash;cases where internal uncertainty and expressed confidence disagree.</li>
-              <li><b>Layer importance analysis:</b> Through learned attention weights, we empirically validate which layers contribute most to uncertainty prediction, testing the "middle layers are optimal" hypothesis.</li>
-              <li><b>Open-source framework:</b> We release our complete codebase for reproducible LLM confidence probing experiments.</li>
-            </ol>
+				We address these questions through systematic experimentation:
+				<ol>
+				<li><b>Architecture comparison:</b> We test whether uncertainty is linearly separable in hidden space by comparing linear probes against MLPs and attention-based networks, with direct implications for interpretability.</li>
+				
+				<li><b>Cross-model evaluation:</b> We evaluate all architectures across Qwen2.5-7B, Mistral-7B, and Llama-3-8B to test whether uncertainty encoding generalizes across model families.</li>
+				
+				<li><b>MultiSourceConfidenceNetwork:</b> We introduce an architecture that fuses hidden states with output logits, testing whether internal representations and expressed confidence provide complementary information or reveal miscalibration.</li>
+				
+				<li><b>Layer importance analysis:</b> Through learned attention weights, we identify which transformer layers encode the strongest uncertainty signals.</li>
+				</ol>
 		    </div>
 		    <div class="margin-right-block">
 						The hallucination problem is particularly insidious because users <i>cannot easily distinguish</i> confident correct responses from confident incorrect ones without external verification.<br><br>
-
-            A 2024 Nature study <a href="#ref_6">[6]</a> found semantic entropy can detect "confabulations"&mdash;but requires 5-10 forward passes per query. Our approach extracts uncertainty from a single pass.<br><br>
 
             <b>Why does this matter?</b> If we can reliably detect when models are uncertain, we enable selective prediction (abstaining on hard cases), retrieval augmentation (fetching external knowledge when needed), and human-in-the-loop systems (flagging responses for expert review).
 		    </div>
