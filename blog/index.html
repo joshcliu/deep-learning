@@ -466,15 +466,12 @@
             <b>3.4 Model and Hidden State Extraction</b><br><br>
 
             <ul>
-              <li><b>Model selection:</b> We evaluated Mistral-7B and Qwen2.5-7B. We chose Qwen2.5-7B (28 layers, 3584 hidden dimension) because probes trained on its hidden states yielded Brier scores approximately 0.10 lower than those trained on Mistral-7B hidden states.</li>
               <li><b>Quantization:</b> 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a> enables extraction on consumer GPUs. Hidden states are converted to float32 for probe training.</li>
               <li><b>Layer selection:</b> We extract from quartile positions [7, 14, 21, 27], capturing early (syntactic), middle (semantic), and late (task-specific) processing stages.</li>
               <li><b>Token position:</b> We use the <b>last token</b> hidden state, which aggregates context via the attention mechanism and represents the model's "decision point" before generating an answer.</li>
             </ul><br>
 
 		    </div>
-		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
-          <b>Model selection:</b> We compared Mistral-7B and Qwen2.5-7B. Qwen2.5-7B was selected because probes trained on its hidden states achieved Brier scores approximately 0.10 lower than Mistral-7B, indicating superior calibration properties.<br><br>
 		    </div>
 		</div>
 
@@ -509,6 +506,16 @@
 
             Why Brier score instead of binary cross-entropy? BCE can be minimized by making confident predictions regardless of accuracy, while Brier score is a <i>proper scoring rule</i>: it's uniquely minimized when predictions equal true probabilities. This encourages calibration during training, not just discrimination.<br><br>
 
+		    </div>
+		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
+          <b>Why Qwen?</b> We chose Qwen because we evaluated several 7B-scale models including Mistral-7B and Qwen2.5-7B. We ultimately chose Qwen2.5-7B (28 layers, 3584 hidden dimension) for our systematic evaluation. Qwen2.5-7B offers strong performance and accessibility without gating restrictions, making it well-suited for reproducible research. Additionally, preliminary experiments revealed that probes trained on Mistral-7B hidden states exhibited notably worse calibration, with Brier scores approximately 0.10 higher than those obtained with Qwen2.5-7B. While the underlying reasons for this difference merit further investigation, the superior empirical performance of probes on Qwen2.5-7B made it the natural choice for our study.<br><br>
+		    </div>
+		</div>
+
+		<div class="content-margin-container">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
             COMMENT: add a note about what baseline we are comparing our probes to
             
             <b>3.6 Probe Architectures</b><br><br>
