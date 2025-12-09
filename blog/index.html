@@ -462,8 +462,8 @@
             Each example receives a <b>binary correctness label</b>: 1 if the model's answer matches ground truth, 0 otherwise. We do not use partial credit; the model is either right or wrong. This clean supervision signal makes probe training straightforward.<br><br>
 
             <b>3.4 Model and Hidden State Extraction</b><br><br>
-
             <ul>
+              <li><b>Model Selection: </b> We chose Qwen2.5-7B for our systematic evaluation after comparing multiple 7B-scale models.</li> 
               <li><b>Quantization:</b> 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a> enables extraction on consumer GPUs. Hidden states are converted to float32 for probe training.</li>
               <li><b>Layer selection:</b> We extract from quartile positions [7, 14, 21, 27], capturing early (syntactic), middle (semantic), and late (task-specific) processing stages.</li>
               <li><b>Token position:</b> We use the <b>last token</b> hidden state, which aggregates context via the attention mechanism and represents the model's "decision point" before generating an answer.</li>
@@ -502,7 +502,7 @@
               <li><b>Selection:</b> Best validation Brier score checkpoint restored after training</li>
             </ul><br>
 
-            Why Brier score instead of binary cross-entropy? BCE can be minimized by making confident predictions regardless of accuracy, while Brier score is a <i>proper scoring rule</i>: it's uniquely minimized when predictions equal true probabilities. This encourages calibration during training, not just discrimination.<br><br>
+            Why Brier score instead of binary cross-entropy? BCE can be minimized by making confident predictions regardless of accuracy, while Brier score is a <i>proper scoring rule</i>: it's uniquely minimized when predictions equal true probabilities. This encourages calibration during training, not just discrimination. COMMENT: add a note about what baseline we are comparing our probes to. <br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
@@ -514,18 +514,17 @@
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-            COMMENT: add a note about what baseline we are comparing our probes to
             
             <b>3.6 Probe Architectures</b><br><br>
 
-            We systematically evaluate 6 probe architectures, each testing specific hypotheses about how uncertainty is encoded in hidden states. These range from simple linear classifiers to complex networks with attention mechanisms and hierarchical processing. We organize them by the hypothesis they test. Some architectures (e.g., hierarchical models) process representations from multiple layers jointly, while single-layer probes operate on each layer independently.<br><br>
+            We systematically evaluate 6 probe architectures, each testing specific hypotheses about how uncertainty is encoded in hidden states. We organize architectures by their primary inductive bias: (1) Linearity (testing if simple models suffice), (2) Information localization (testing if uncertainty is sparse or hierarchical), (3) Layer composition (testing if uncertainty is distributed across depths). This taxonomy allows systematic hypothesis testing rather than ad-hoc architecture comparisons. Some architectures (e.g., hierarchical models) process representations from multiple layers jointly, while single-layer probes operate on each layer independently.<br><br>
 
             <b>Baseline Probes (Testing Linearity)</b><br><br>
 
             <table class="results">
               <tr>
                 <th style="width: 20%">Architecture</th>
-                <th style="width: 65%">Hypothesis & Description</th>
+                <th style="width: 65%">Description</th>
                 <th style="width: 15%">Parameters</th>
               </tr>
               <tr>
@@ -542,12 +541,12 @@
               </tr>
             </table><br>
 
-            <b>Structural Hypotheses (How Information is Organized)</b><br><br>
+            <b>Structural Hypotheses (Testing if uncertainty is sparse and/or hierarchical)</b><br><br>
 
             <table class="results">
               <tr>
                 <th style="width: 20%">Architecture</th>
-                <th style="width: 65%">Hypothesis & Description</th>
+                <th style="width: 65%">Description</th>
                 <th style="width: 15%">Parameters</th>
               </tr>
               <tr>
@@ -565,12 +564,12 @@
             </table><br>
 
 
-            <b>Multi-Layer Architectures (Combining Information Across Layers)</b><br><br>
+            <b>Multi-Layer Architectures (Testing if uncertainty is distributed across depths)</b><br><br>
 
             <table class="results">
               <tr>
                 <th style="width: 20%">Architecture</th>
-                <th style="width: 65%">Hypothesis & Description</th>
+                <th style="width: 65%">Description</th>
                 <th style="width: 15%">Parameters</th>
               </tr>
               <tr>
@@ -658,7 +657,7 @@
 		    <div class="margin-right-block" style="transform: translate(0%, -45%);">
           <b>Why constrained generation?</b> Free-form generation introduces ambiguity in answer extraction. Constraining to valid answer tokens eliminates this noise.<br><br>
 
-          <b>Why k-fold CV?</b> With ~10K examples, a single 60/20/20 split wastes data. K-fold ensures all examples contribute to both training and evaluation, yielding more reliable estimates.<br><br>
+          <b>Why k-fold CV?</b> With ~2K examples, a single 60/20/20 split wastes data. K-fold ensures all examples contribute to both training and evaluation, yielding more reliable estimates.<br><br>
 
           <b>Why two-stage experiments?</b> Experiment 1 tests four architectures (Linear, MLP, Hierarchical, Sparse) to identify the best probe design. Experiment 2 builds on these findings by testing three information source configurations (single layer, multi-layer ensemble, fusion with logits) to determine how combining signals improves confidence-correction correlation.
 		    </div>
