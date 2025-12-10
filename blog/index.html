@@ -405,6 +405,12 @@ MathJax = {
 
 		    </div>
 		    <div class="margin-right-block">
+            <b>Parameter counts:</b><br>
+            Linear: 4K<br>
+            Sparse: 460K<br>
+            Hierarchical: 320K<br>
+            MLP: 920K<br><br>
+            The simplest probe has 230× fewer parameters than the most complex.
 		    </div>
 		</div>
 
@@ -450,8 +456,8 @@ MathJax = {
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
-            <b>Why 10-fold CV?</b> With ~10K examples, 10-fold provides 1,000 validation samples per fold—enough for reliable metric estimates while maximizing training data usage.<br><br>
-            <b>Grid search scope:</b> We searched ~50 configurations across learning rate, weight decay, hidden dimensions, and dropout, selecting based on validation Brier score.<br><br>
+            <b>Why Brier loss?</b> Unlike cross-entropy, Brier score penalizes overconfidence, directly optimizing for calibration rather than just discrimination.<br><br>
+            <b>Why 10-fold CV?</b> With ~10K examples, 10-fold provides 1,000 test samples per fold—enough for reliable metric estimates while maximizing training data.<br><br>
 		    </div>
 		</div>
 
@@ -567,13 +573,15 @@ MathJax = {
 
             <b>Layer Analysis:</b><br><br>
 
-            <img src="./images/layer_confidence.png" width=700px/><br><br>
+            <img src="./images/layer_confidence.png" width=700px/><br>
+            <i>Figure 1: Linear probe AUROC across transformer layers. Middle layers (50% depth) achieve best single-layer performance.</i><br><br>
 
             To understand where uncertainty is encoded, we analyze linear probe performance across layers. Our results confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) achieves the best single-layer performance. Early layers (7, 25% depth) encode primarily syntactic information, while final layers (27, 96% depth) specialize for output formatting—neither captures uncertainty as strongly as middle layers where semantic processing peaks.<br><br>
 
             <b>Calibration Analysis:</b><br><br>
 
-            <img src="./images/reliability_diags.png" width=650px/><br><br>
+            <img src="./images/reliability_diags.png" width=650px/><br>
+            <i>Figure 2: Reliability diagrams comparing probe calibration. The diagonal represents perfect calibration; bars show actual accuracy per confidence bin.</i><br><br>
 
             Reliability diagrams visualize calibration by plotting average accuracy (y-axis) vs. predicted confidence (x-axis) in each bin. Perfect calibration lies on the diagonal: when the model predicts 70% confidence, it should be correct 70% of the time. The blue bars show actual accuracy within each confidence bin. Gaps between the bars and the dashed diagonal line indicate miscalibration. The Linear probe (ECE=0.033) and Hierarchical probe (ECE=0.039) show excellent calibration, with accuracy closely tracking predicted confidence. The Sparse probe (ECE=0.041) also demonstrates good calibration with a slight decrease in calibration at higher confidence ranges. In contrast, the MLP probe (ECE=0.223) shows significant miscalibration, with accuracy deviating substantially from confidence across bins, particularly in lower confidence ranges.<br><br>
 
@@ -632,7 +640,8 @@ MathJax = {
 
             <b>Layer Weight Analysis:</b><br><br>
 
-            <img src="./images/fusionlayerweights.png" width=700px/><br><br>
+            <img src="./images/fusionlayerweights.png" width=700px/><br>
+            <i>Figure 3: Learned layer weights from Fusion Probe showing near-uniform contribution across transformer layers.</i><br><br>
 
             The fusion probe learns softmax-normalized weights over the four quartile layers, revealing which layers contribute most to uncertainty prediction.<br><br>
 
@@ -642,14 +651,9 @@ MathJax = {
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
-						<b>Figure 2:</b> Learned layer weights from Ensemble Probe showing relative importance of each transformer layer for uncertainty prediction.<br><br>
-
-            <b>Figure 3:</b> Reliability diagrams comparing calibration. The diagonal represents perfect calibration.<br><br>
-
-            <b>Key Insight:</b> The single-pass efficiency of probing (vs. 5-10 passes for semantic entropy) makes it practical for production deployment.<br><br>
-
-            <b>MMLU subject diversity:</b> With 57 subjects spanning STEM, humanities, and social sciences, MMLU allows us to test whether uncertainty signals generalize across domains or are subject-specific.<br><br>
-
+            <b>Exp 1 takeaway:</b> Linear probes achieve best calibration (ECE 0.033) despite 200× fewer parameters than MLP.<br><br>
+            <b>Exp 2 takeaway:</b> Fusion Probe achieves 19% better Brier (0.098 vs 0.121) than hidden-states-only, statistically significant at p < 0.01.<br><br>
+            <b>Efficiency:</b> Single forward pass vs. 5-10× for semantic entropy methods.
 		    </div>
 		</div>
 
@@ -706,6 +710,7 @@ MathJax = {
             Several extensions could build on this work. <b>Fine-grained layer analysis</b> (probing all 28 layers) would reveal how uncertainty representation evolves through the network. <b>Uncertainty steering</b> via activation engineering could enable controlled calibration by adding or subtracting the learned "uncertainty vector." <b>Cross-model transfer</b> experiments would test whether uncertainty encoding is universal or model-specific. <b>Uncertainty-aware decoding</b> could adapt sampling temperature based on probe outputs—exploring alternatives when uncertain, committing when confident. Finally, extending probes to <b>vision-language models</b> and <b>chain-of-thought reasoning</b> would address hallucination detection and temporal uncertainty dynamics in more complex generation settings.
 		    </div>
 		    <div class="margin-right-block">
+            <b>Scope caveat:</b> Results are for Qwen2.5-7B on MMLU multiple-choice. Cross-model transfer and open-ended generation remain open questions for future work.
 		    </div>
 		</div>
 
