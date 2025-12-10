@@ -226,70 +226,7 @@
 		    <div class="main-content-block">
 					<h1>2. Background and Related Work</h1>
 
-          Before diving into our approach, it's worth understanding where uncertainty quantification has been and why the problem remains challenging.<br><br>
-
-        <b>2.1 Classical Approaches</b>
-          <p>
-             Before the rise of modern large language models, researchers had already been grappling
-             with a central question in machine learning: <i>how can we quantify a model’s uncertainty?</i>
-             Three classical approaches emerged:
-             </p>
-             
-             <ul>
-             <li>
-             	<b>Bayesian neural networks</b> <a href="#ref_7">[7]</a> place distributions over weights
-             	instead of using point estimates, so uncertainty is obtained from the posterior.
-             </li>
-             <li>
-             	<b>Monte Carlo dropout</b> <a href="#ref_8">[8]</a> keeps dropout active at test time,
-             	runs the model multiple times, and uses the variation across predictions as an
-             	uncertainty estimate.
-             </li>
-             <li>
-             	<b>Deep ensembles</b> <a href="#ref_9">[9]</a> train several independent models and
-             	quantify uncertainty via their disagreement.
-             </li>
-             </ul>
-             
-             <p>
-             All three methods effectively treat uncertainty as dispersion across predictions. They work
-             well for smaller networks, but at the scale of billion-parameter LLMs, training or sampling
-             many models becomes prohibitively expensive, motivating single-model, single–forward-pass
-             approaches to uncertainty.
-             </p>
-             
-             
-        <b>2.2 Uncertainty in the Age of LLMs</b>
-          <p>
-          The transformer revolution changed the game: LLMs are so large that
-          classical ensemble-style methods are often impractical, and the connection between token
-          probabilities and factual correctness is surprisingly weak. In practice, three main families
-          of approaches have been explored.
-          </p>
-          
-          <p><b>Token probability methods</b> treat the model’s softmax scores as confidence: if the model assigns high probability
-          to an answer, we interpret that as high certainty. Jiang et al.
-          <a href="#ref_11">[11]</a> showed that these probabilities are often poorly calibrated, with models
-          assigning very high probability to incorrect answers, especially in open-ended settings.
-          This gap between next-token confidence and actual factual correctness motivates looking
-          inside the model rather than only at its output distribution.
-          </p>
-          
-          <p><b>Consistency-based methods</b> generate multiple responses to the same prompt and measure how much they agree.
-          Kuhn et al. <a href="#ref_6">[6]</a> introduced semantic entropy, which first clusters responses by
-          meaning and then computes entropy over those clusters, achieving strong hallucination
-          detection. The downside is computational cost (typically 5-10 forward passes per query) and
-          the fact that it mainly captures uncertainty about <i>what to say</i>, whereas our work targets
-          uncertainty about <i>being correct</i> in a single forward pass.
-          </p>
-          
-          <p><b>Verbalized confidence methods</b> typically ask the model how confident it is and treat its self-report as
-          an uncertainty estimate. Xiong et al. <a href="#ref_12">[12]</a> found that while LLMs can express
-          graded confidence, they tend to be systematically overconfident and sensitive to prompt
-          phrasing. This mismatch between expressed and actual uncertainty raises the question of
-          whether internal representations carry a more reliable confidence signal than the model’s
-          own words.
-          </p>
+          Existing uncertainty quantification methods for LLMs fall into three categories. <b>Token probability methods</b> use the model's softmax scores as confidence, but Jiang et al. <a href="#ref_11">[11]</a> showed these are often poorly calibrated. <b>Consistency-based methods</b> like semantic entropy <a href="#ref_6">[6]</a> generate multiple responses and measure agreement, achieving strong hallucination detection but requiring 5-10 forward passes per query. <b>Verbalized confidence</b> asks models to self-report uncertainty, but Xiong et al. <a href="#ref_12">[12]</a> found they tend to be systematically overconfident. These limitations motivate looking inside the model's internal representations.<br><br>
 
         <b>2.3 Probing Internal Representations</b>
           <p>
@@ -321,27 +258,9 @@
           focus on probing hidden states to study how uncertainty is represented inside the model.
           </p>
           
-		<b>2.4 Calibration: When Confidence Matches Reality</b>
+		<b>2.4 Calibration</b>
           <p>
-          A model is well-calibrated if its stated confidence matches its accuracy: when it predicts
-          70% confidence, it should be correct about 70% of the time. This is critical in deployment
-          settings, where users need to know when to trust model outputs.
-          </p>
-          
-          <p>
-          Guo et al. <a href="#ref_19">[19]</a> showed that modern neural networks are often
-          overconfident and introduced temperature scaling and Expected Calibration Error (ECE) as
-          standard tools for post-hoc calibration. However, ECE can be misleading in simple cases
-          (e.g., constant-confidence predictions), since a model can appear well-calibrated without
-          providing informative uncertainty.
-          </p>
-          
-          <p>
-          The Brier score <a href="#ref_20">[20]</a> addresses this by acting as a proper scoring rule,
-          minimized only when predicted probabilities match true frequencies. It penalizes both being
-          wrong and being confidently wrong. In our work, we train probes with Brier loss so they
-          learn calibrated probabilities rather than just accurate binary predictions, making them
-          directly comparable to other uncertainty quantification methods.
+          A well-calibrated model's confidence matches its accuracy (70% confidence → 70% correct). Guo et al. <a href="#ref_19">[19]</a> showed neural networks are often overconfident and introduced Expected Calibration Error (ECE) as a metric. We train probes with Brier score <a href="#ref_20">[20]</a>, a proper scoring rule that penalizes confident wrong predictions, encouraging calibrated probabilities rather than just accurate classifications.
           </p>
 
 		<b>2.5 Research Gaps We Address</b>
@@ -359,13 +278,15 @@
             </li>
             <br>
             <li>
-              <b>Multi-layer information.</b><br>
+              <b>Multi-layer information and layer localization.</b><br>
               Prior work typically probes single layers <a href="#ref_14">[14]</a> or uses naive
-              concatenation, leaving open how uncertainty signals spread across early, middle, and late
-              layers.<br>
-              <i>Our contribution:</i> We evaluate four fusion strategies: concatenation, learned weighted
-              ensembles, attention-based aggregation, and combining hidden states with logits, to identify
-              how to best aggregate cross-layer uncertainty information.
+              concatenation, leaving open both how to combine uncertainty signals across layers and
+              where uncertainty is primarily encoded (early vs. middle vs. final layers).<br>
+              <i>Our contribution:</i> We introduce a multi-layer ensemble approach with learned weighted
+              aggregation that automatically discovers which layers encode the most uncertainty information.
+              By training softmax-normalized combination weights over quartile layers (25%, 50%, 75%, 96% depth),
+              we empirically demonstrate that middle layers (50-75% depth) dominate uncertainty prediction,
+              receiving 60-70% of the learned ensemble weight.
             </li>
             <br>
             <li>
@@ -373,28 +294,20 @@
               Existing studies usually focus on either hidden-state signals
               <a href="#ref_14">[14]</a> or output probabilities <a href="#ref_11">[11]</a> in isolation, so
               the role of their disagreement as a miscalibration signal is underexplored.<br>
-              <i>Our contribution:</i> We introduce a Fusion Probe that jointly uses hidden-state features
-              and logit-based confidence, and show that their interaction yields our strongest
-              miscalibration detection performance.
+              <i>Our contribution:</i> We introduce a Fusion Probe architecture that combines hidden states
+              from multiple layers with output logit features (entropy, margin, max probability) using
+              cross-layer attention and learned weighted aggregation. This approach detects miscalibration
+              by identifying cases where internal uncertainty (hidden states) and expressed confidence (logits)
+              diverge.
             </li>
             <br>
             <li>
               <b>Architectural assumptions.</b><br>
               Different probe architectures encode different assumptions about how uncertainty is
               structured (e.g., sparsity, hierarchy), yet there is no systematic comparison of these assumptions.<br>
-              <i>Our contribution:</i> We run a broad architectural study and find that simple,
-              capacity-limited probes often match or outperform more complex designs, suggesting that
-              uncertainty behaves as a low-dimensional, largely linearly accessible feature.
-            </li>
-            <br>
-            <li>
-              <b>Where is uncertainty encoded? (The Layer Question).</b><br>
-              While prior work indicates that intermediate layers carry rich semantic information
-              <a href="#ref_5">[5]</a>, it is unclear whether uncertainty in particular is concentrated there
-              or closer to the output layers.<br>
-              <i>Our contribution:</i> By probing all 32 layers and learning ensemble weights over them,
-              we show that middle layers dominate uncertainty prediction, indicating where uncertainty is
-              primarily encoded in our model.
+              <i>Our contribution:</i> We systematically compare four probe architectures (Linear, MLP,
+              Hierarchical, Sparse) and find that simple linear probes match or outperform complex designs
+              despite having 100× fewer parameters, suggesting uncertainty is linearly accessible.
             </li>
           </ol>
 
@@ -658,7 +571,7 @@
 
           <b>Why k-fold CV?</b> With ~2K examples, a single 60/20/20 split wastes data. K-fold ensures all examples contribute to both training and evaluation, yielding more reliable estimates.<br><br>
 
-          <b>Why two-stage experiments?</b> Experiment 1 tests four architectures (Linear, MLP, Hierarchical, Sparse) to identify the best probe design. Experiment 2 builds on these findings by testing three information source configurations (single layer, multi-layer ensemble, fusion with logits) to determine how combining signals improves confidence-correction correlation.
+          <b>Why two-stage experiments?</b> Experiment 1 tests four architectures (Linear, MLP, Hierarchical, Sparse) to identify the best probe design. Experiment 2 builds on the finding that linear probes are effective by testing three information aggregation strategies: single-layer linear probe, multi-layer ensemble of linear probes with learned weights, and fusion architecture that combines per-layer linear probes with output logit features. This tests whether the advantage comes from the probe architecture itself or from the information provided as input.
 		    </div>
 		</div>
 
