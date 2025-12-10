@@ -218,10 +218,10 @@ MathJax = {
             Large language models (LLMs) are known to present incorrect answers with high confidence, which is particularly problematic in high-stakes domains like medicine, law, and finance <a href="#ref_1">[1]</a><a href="#ref_2">[2]</a>. A significant obstacle in decreasing the rate of such mistakes is the lack of a reliable signal regarding when an LLM is wrong. Reliable uncertainty estimates would allow models to return answers only when fairly certain, optimize when to look up information, and know when to defer to a human user, making LLMs safer for real-world scenarios. We investigate whether models know what they don't know, and whether that knowledge can be gleaned from their internal representations.<br><br>
 
             <div class="hypothesis">
-              <b>Central Hypothesis:</b> A model's internal representation of uncertainty can differ from the confidence it expresses in its outputs. By detecting this divergence—fusing hidden states with output logits—we can extract calibration signals that neither source provides alone.
+              <b>Central Hypothesis:</b> A model's internal representation of uncertainty can differ from the confidence it expresses in its outputs. By detecting this divergence (fusing hidden states with output logits), we can extract calibration signals that neither source provides alone.
             </div><br>
 
-            Evidence suggests such internal signals exist: Kadavath et al. <a href="#ref_3">[3]</a> showed LLMs can predict their own correctness well above chance, Burns et al. <a href="#ref_4">[4]</a> found that hidden states encode truthfulness even without supervised labels, and Gurnee & Tegmark <a href="#ref_5">[5]</a> demonstrated that middle transformer layers encode richer semantic information than final layers. We use probing, a technique that trains lightweight classifiers on frozen hidden states, as introduced by Hewitt & Manning <a href="#ref_6">[6]</a> and later used for LLM error detection by Azaria & Mitchell <a href="#ref_7">[7]</a>. While prior work has probed hidden states <i>or</i> analyzed output probabilities in isolation, we investigate whether <b>combining both sources reveals miscalibration</b>—cases where internal uncertainty and expressed confidence disagree. Specifically: (1) Is uncertainty linearly encoded or does it require non-linear extraction? (2) Is uncertainty concentrated in specific layers or distributed across depths? and (3) Can fusing hidden states with output logits detect internal-expressed confidence divergence?
+            Evidence suggests such internal signals exist: Kadavath et al. <a href="#ref_3">[3]</a> showed LLMs can predict their own correctness well above chance, Burns et al. <a href="#ref_4">[4]</a> found that hidden states encode truthfulness even without supervised labels, and Gurnee & Tegmark <a href="#ref_5">[5]</a> demonstrated that middle transformer layers encode richer semantic information than final layers. We use probing, a technique that trains lightweight classifiers on frozen hidden states, as introduced by Hewitt & Manning <a href="#ref_6">[6]</a> and later used for LLM error detection by Azaria & Mitchell <a href="#ref_7">[7]</a>. While prior work has probed hidden states <i>or</i> analyzed output probabilities in isolation, we ask whether <b>combining both sources reveals miscalibration</b>: cases where internal uncertainty and expressed confidence disagree. Specifically: (1) Is uncertainty linearly encoded or does it require non-linear extraction? (2) Is uncertainty concentrated in specific layers or distributed across depths? and (3) Can fusing hidden states with output logits detect when internal and expressed confidence diverge?
 		    </div>
 		    <div class="margin-right-block">
 		    </div>
@@ -292,7 +292,7 @@ MathJax = {
               <i>Our contribution:</i> We introduce a <b>Fusion Probe</b> that combines hidden states
               from multiple layers with output logit features (entropy, margin, max probability).
               This architecture detects cases where internal uncertainty and expressed confidence
-              diverge—achieving 19% better calibration than hidden-state-only approaches (Brier: 0.098 vs 0.121).
+              diverge, achieving 19% better calibration than hidden-state-only approaches (Brier: 0.098 vs 0.121).
             </li>
             <br>
             <li>
@@ -300,8 +300,8 @@ MathJax = {
               Prior work typically probes single layers <a href="#ref_7">[7]</a>, leaving open
               whether uncertainty is concentrated in specific depths or distributed across the network.<br>
               <i>Our contribution:</i> We confirm that middle layers (50% depth) achieve best single-layer
-              performance, but develop an Ensemble Probe with learned layer weights revealing that
-              <b>combining layers outperforms any single layer</b>—with near-uniform weights indicating
+              performance, but develop an Ensemble Probe with learned layer weights showing that
+              <b>combining layers outperforms any single layer</b>. The near-uniform weights indicate
               each layer contributes complementary uncertainty signal.
             </li>
             <br>
@@ -312,8 +312,8 @@ MathJax = {
               against non-linear alternatives for uncertainty.<br>
               <i>Our contribution:</i> We compare linear probes against MLP, Hierarchical, and Sparse baselines
               and find that <b>linear probes achieve statistically equivalent performance</b> to complex
-              architectures despite 80-230× fewer parameters, while the higher-capacity MLP significantly
-              underperforms—suggesting additional complexity leads to overfitting rather than better uncertainty extraction.
+              architectures despite 80-230× fewer parameters. The higher-capacity MLP significantly
+              underperforms, suggesting that additional complexity leads to overfitting rather than better uncertainty extraction.
             </li>
           </ol>
 
@@ -380,7 +380,7 @@ MathJax = {
                 <td><b>HierarchicalProbe</b></td>
                 <td><b>Hypothesis:</b> Uncertainty is built up across layers through hierarchical refinement, with each depth contributing a different part of the signal.<br><br>
                 $$\hat{p} = \sigma\bigl(\text{MLP}_{\text{global}}([\mathbf{r}_{\text{fine}}; \mathbf{r}_{\text{mid}}; \mathbf{r}_{\text{sem}}])\bigr)$$
-                We process the hidden state at fine, mid, and semantic levels—using chunk MLPs, attention pooling, and a global feedforward head—to test whether uncertainty emerges through hierarchical refinement.</td>
+                We process the hidden state at fine, mid, and semantic levels (using chunk MLPs, attention pooling, and a global feedforward head) to test whether uncertainty emerges through hierarchical refinement.</td>
               </tr>
             </table><br>
 
@@ -447,19 +447,19 @@ MathJax = {
 
             All probes are trained with:
             <ul>
-              <li><b>Loss: Brier score</b> \((\hat{p} - y)^2\) — Unlike binary cross-entropy, which can be minimized by making extreme predictions, Brier score is a <i>proper scoring rule</i> that is uniquely minimized when predicted probabilities equal true probabilities. This directly optimizes for calibration rather than just discrimination.</li><br>
+              <li><b>Loss: Brier score</b> \((\hat{p} - y)^2\). Unlike binary cross-entropy, which can be minimized by making extreme predictions, Brier score is a <i>proper scoring rule</i> that is uniquely minimized when predicted probabilities equal true probabilities. This directly optimizes for calibration rather than just discrimination.</li><br>
 
-              <li><b>Optimizer: AdamW</b> (lr = \(10^{-3}\), weight_decay = \(10^{-5}\)) — We selected AdamW over SGD for its adaptive learning rates and decoupled weight decay, which provides more stable training on our relatively small probe architectures. Hyperparameters were tuned via grid search over lr \(\in \{10^{-4}, 5 \times 10^{-4}, 10^{-3}, 5 \times 10^{-3}\}\) and weight_decay \(\in \{10^{-6}, 10^{-5}, 10^{-4}\}\).</li><br>
+              <li><b>Optimizer: AdamW</b> (lr = \(10^{-3}\), weight_decay = \(10^{-5}\)). We selected AdamW over SGD for its adaptive learning rates and decoupled weight decay, which provides more stable training on our relatively small probe architectures. Hyperparameters were tuned via grid search over lr \(\in \{10^{-4}, 5 \times 10^{-4}, 10^{-3}, 5 \times 10^{-3}\}\) and weight_decay \(\in \{10^{-6}, 10^{-5}, 10^{-4}\}\).</li><br>
 
-              <li><b>Schedule: Cosine annealing</b> over 100 epochs — Cosine decay provides smooth learning rate reduction without requiring manual milestone selection. We found this outperformed step decay and linear warmup schedules in preliminary experiments, likely because the gradual decay allows fine-tuning of the uncertainty direction in later epochs.</li><br>
+              <li><b>Schedule: Cosine annealing</b> over 100 epochs. Cosine decay provides smooth learning rate reduction without requiring manual milestone selection. We found this outperformed step decay and linear warmup schedules in preliminary experiments, likely because the gradual decay allows fine-tuning of the uncertainty direction in later epochs.</li><br>
 
-              <li><b>Selection: Best validation Brier score</b> — We checkpoint based on validation Brier rather than loss plateau to directly select for calibration quality. This prevents selecting overfit models that achieve low training loss but poor generalization.</li>
+              <li><b>Selection: Best validation Brier score</b>. We checkpoint based on validation Brier rather than loss plateau to directly select for calibration quality. This prevents selecting overfit models that achieve low training loss but poor generalization.</li>
             </ul><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
             <b>Why Brier loss?</b> Unlike cross-entropy, Brier score penalizes overconfidence, directly optimizing for calibration rather than just discrimination.<br><br>
-            <b>Why 10-fold CV?</b> With ~10K examples, 10-fold provides 1,000 test samples per fold—enough for reliable metric estimates while maximizing training data.<br><br>
+            <b>Why 10-fold CV?</b> With ~10K examples, 10-fold provides 1,000 test samples per fold, enough for reliable metric estimates while maximizing training data.<br><br>
 		    </div>
 		</div>
 
@@ -485,11 +485,11 @@ MathJax = {
             We evaluate probes on three complementary metrics:
 
             <ul>
-              <li><b>AUROC</b>: Measures discrimination—the probability that a correct answer receives higher confidence than an incorrect one. Range [0, 1], where 0.5 is random. We use AUROC because it is threshold-independent and directly evaluates the probe's ability to rank answers, which is essential for selective prediction (abstaining on low-confidence outputs).</li>
+              <li><b>AUROC</b>: Measures discrimination, i.e., the probability that a correct answer receives higher confidence than an incorrect one. Range [0, 1], where 0.5 is random. We use AUROC because it is threshold-independent and directly evaluates the probe's ability to rank answers, which is essential for selective prediction (abstaining on low-confidence outputs).</li>
 
-              <li><b>Brier Score</b> <a href="#ref_13">[13]</a>: A proper scoring rule measuring calibration and discrimination jointly: \(\frac{1}{N} \sum_{i=1}^{N} (p_i - y_i)^2\). Lower is better (0 is perfect). We use Brier score because, unlike cross-entropy, it does not reward extreme predictions—making it ideal for evaluating well-calibrated probability estimates rather than just classification accuracy.</li>
+              <li><b>Brier Score</b> <a href="#ref_13">[13]</a>: A proper scoring rule measuring calibration and discrimination jointly: \(\frac{1}{N} \sum_{i=1}^{N} (p_i - y_i)^2\). Lower is better (0 is perfect). We use Brier score because, unlike cross-entropy, it does not reward extreme predictions, making it ideal for evaluating well-calibrated probability estimates rather than just classification accuracy.</li>
 
-              <li><b>ECE</b> <a href="#ref_12">[12]</a>: Expected Calibration Error measures pure calibration by binning predictions: \(\sum_{b=1}^{B} \frac{n_b}{N} | \text{acc}(b) - \text{conf}(b) |\). We use \(B = 10\) bins. Lower is better. We include ECE because it isolates calibration from discrimination, directly measuring whether predicted probabilities match empirical frequencies—critical for deployment where users must trust confidence scores.</li>
+              <li><b>ECE</b> <a href="#ref_12">[12]</a>: Expected Calibration Error measures pure calibration by binning predictions: \(\sum_{b=1}^{B} \frac{n_b}{N} | \text{acc}(b) - \text{conf}(b) |\). We use \(B = 10\) bins. Lower is better. We include ECE because it isolates calibration from discrimination, directly measuring whether predicted probabilities match empirical frequencies. This is critical for deployment where users must trust confidence scores.</li>
             </ul><br>
 
             <span class="subsection">4.3 Baseline: Do Probes Work?</span><br><br>
@@ -518,7 +518,7 @@ MathJax = {
             </table>
             <i>Table 1: Baseline comparison showing that probes extract meaningful uncertainty signals from hidden states.</i><br><br>
 
-            <b>Conclusion:</b> Hidden states contain uncertainty signals. The linear probe achieves AUROC of 0.829, substantially above the random baseline of 0.5016. This confirms that uncertainty information is encoded in the model's internal representations and can be extracted with simple probes.<br><br>
+            <b>Conclusion:</b> Hidden states contain uncertainty signals. The linear probe achieves AUROC of 0.829, well above the random baseline of 0.5016, showing that uncertainty information is encoded in the model's internal representations and can be extracted with simple probes.<br><br>
 
             <span class="subsection">4.4 Experiment 1: Which Architecture is Best?</span><br><br>
 
@@ -571,14 +571,14 @@ MathJax = {
 
             <b>Statistical Significance:</b> We performed paired t-tests across the 10 folds to assess whether performance differences are statistically significant. The Linear probe significantly outperforms the MLP probe on all metrics (AUROC: \(t(9) = 5.23, p < 0.001\); Brier: \(t(9) = 5.87, p < 0.001\)). Differences between Linear, Hierarchical, and Sparse probes are not statistically significant (\(p > 0.05\)), suggesting that once capacity is sufficient to find the uncertainty direction, additional complexity provides no benefit.<br><br>
 
-            <b>Why does linear win with a single layer?</b> When restricted to a single layer, the available uncertainty signal is limited. Complex architectures (MLP, Hierarchical, Sparse) have sufficient capacity to memorize training examples or fit spurious correlations in the high-dimensional hidden space, but these patterns fail to generalize. The capacity-constrained linear probe is forced to find the single most robust direction corresponding to genuine uncertainty, avoiding overfitting. This validates the linear representation hypothesis <a href="#ref_14">[14]</a>: when signal is sparse, simplicity wins.<br><br>
+            <b>Why does linear win with a single layer?</b> When restricted to a single layer, the available uncertainty signal is limited. Complex architectures (MLP, Hierarchical, Sparse) have sufficient capacity to memorize training examples or fit spurious correlations in the high-dimensional hidden space, but these patterns fail to generalize. The capacity-constrained linear probe is forced to find the single most robust direction corresponding to genuine uncertainty, avoiding overfitting. The result aligns with the linear representation hypothesis <a href="#ref_14">[14]</a>: when signal is sparse, simplicity wins.<br><br>
 
             <b>Layer Analysis:</b><br><br>
 
             <img src="./images/layer_confidence.png" width=700px/><br>
             <i>Figure 1: Linear probe AUROC across transformer layers. Middle layers (50% depth) achieve best single-layer performance.</i><br><br>
 
-            To understand where uncertainty is encoded, we analyze linear probe performance across layers. Our results confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) achieves the best single-layer performance. Early layers (7, 25% depth) encode primarily syntactic information, while final layers (27, 96% depth) specialize for output formatting—neither captures uncertainty as strongly as middle layers where semantic processing peaks.<br><br>
+            To understand where uncertainty is encoded, we analyze linear probe performance across layers. Our results confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) achieves the best single-layer performance. Early layers (7, 25% depth) encode primarily syntactic information, while final layers (27, 96% depth) specialize for output formatting. Neither captures uncertainty as strongly as middle layers where semantic processing peaks.<br><br>
 
             <b>Calibration Analysis:</b><br><br>
 
@@ -636,9 +636,9 @@ MathJax = {
 
             <b>Finding:</b> Adding more information sources consistently improves performance. The single-layer baseline (AUROC 0.829) improves to 0.862 with the multi-layer ensemble, and reaches 0.904 with fusion. Brier score drops from 0.143 → 0.121 → 0.098, indicating progressively better calibration.<br><br>
 
-            <b>Statistical Significance:</b> All pairwise comparisons are statistically significant (paired t-test, \(p < 0.01\)). The Ensemble significantly improves over Single Layer (Brier: \(t(9) = 3.92, p < 0.01\)), and Fusion significantly improves over Ensemble (Brier: \(t(9) = 4.28, p < 0.01\)). This confirms that both multi-layer aggregation and logit fusion provide genuine improvements beyond random variation.<br><br>
+            <b>Statistical Significance:</b> All pairwise comparisons are statistically significant (paired t-test, \(p < 0.01\)). The Ensemble significantly improves over Single Layer (Brier: \(t(9) = 3.92, p < 0.01\)), and Fusion significantly improves over Ensemble (Brier: \(t(9) = 4.28, p < 0.01\)). Both multi-layer aggregation and logit fusion provide genuine improvements beyond random variation.<br><br>
 
-            Different layers encode complementary aspects of uncertainty. Early layers capture syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. By combining signals across layers, the ensemble aggregates these complementary views. The fusion probe further improves by incorporating output logits, which capture the model's "expressed" confidence—enabling detection of cases where internal uncertainty diverges from output confidence. Regardless, after extensive testing with different quantile sizes, we determined that four layers offered the best performance-compute tradeoff with respect to both AUROC and Brier score. <br><br>
+            Different layers encode complementary aspects of uncertainty. Early layers capture syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. By combining signals across layers, the ensemble aggregates these complementary views. The fusion probe further improves by incorporating output logits, which capture the model's "expressed" confidence, enabling detection of cases where internal uncertainty diverges from output confidence. After testing different quantile sizes, we found that four layers offered the best performance-compute tradeoff.<br><br>
 
             <b>Layer Weight Analysis:</b><br><br>
 
@@ -647,9 +647,9 @@ MathJax = {
 
             The fusion probe learns softmax-normalized weights over the four quartile layers, revealing which layers contribute most to uncertainty prediction.<br><br>
 
-            <b>Results:</b> The learned weights are approximately uniform across layers, indicating that each layer contributes comparable uncertainty signal. Layer 14 (50% depth) receives a slightly higher weight, but the difference is modest. This suggests that uncertainty information is distributed throughout the network rather than concentrated in specific layers—explaining why combining multiple layers improves performance over any single layer.<br><br>
+            <b>Results:</b> The learned weights are roughly uniform across layers, indicating that each layer contributes comparable uncertainty signal. Layer 14 (50% depth) receives a slightly higher weight, but the difference is modest. Uncertainty information seems distributed throughout the network rather than concentrated in specific layers, which explains why combining multiple layers improves performance over any single layer.<br><br>
 
-            The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture internal uncertainty. When these signals diverge—the model appears confident but is internally uncertain—the fusion probe detects this miscalibration. This addresses a key limitation of hidden-state-only approaches: they cannot identify when internal and expressed confidence disagree.<br><br>
+            The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture internal uncertainty. When these signals diverge (the model appears confident but is internally uncertain), the fusion probe detects this miscalibration. This gets at a key limitation of hidden-state-only approaches: they cannot identify when internal and expressed confidence disagree.<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
@@ -668,29 +668,29 @@ MathJax = {
 
             <span class="subsection">5.1 Linear vs. Non-linear</span><br><br>
 
-            The Linear Probe substantially outperforms the MLP Probe (Brier 0.166 vs 0.266, ECE 0.074 vs 0.224), with higher-capacity models achieving worse calibration. This validates the linear representation hypothesis <a href="#ref_14">[14]</a>: uncertainty is encoded as a geometric direction in hidden space, not in complex non-linear relationships. The MLP Probe overfits to spurious correlations, while the capacity-limited Linear Probe finds a robust uncertainty direction.<br><br>
+            The Linear Probe substantially outperforms the MLP Probe (Brier 0.166 vs 0.266, ECE 0.074 vs 0.224), with higher-capacity models achieving worse calibration. The finding supports the linear representation hypothesis <a href="#ref_14">[14]</a>: uncertainty is encoded as a geometric direction in hidden space, not in complex non-linear relationships. The MLP Probe overfits to spurious correlations, while the capacity-limited Linear Probe finds a robust uncertainty direction.<br><br>
 
             This has three implications: (1) uncertainty is explicitly represented geometrically, making it accessible to the model's own linear readout mechanism for interpretability and steering, (2) simple probes are preferable, not just sufficient, and (3) Brier loss successfully prevents the overconfident predictions that higher capacity enables.<br><br>
 
             <span class="subsection">5.2 The Layer Question</span><br><br>
 
-            The fusion probe's learned weights are approximately uniform across layers, with middle layers receiving only a slight advantage. This indicates that uncertainty signal is <b>distributed throughout the network</b> rather than concentrated in specific layers. Each layer captures a different aspect of uncertainty: early layers encode syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. The near-uniform weighting suggests these signals are complementary rather than redundant.<br><br>
+            The fusion probe's learned weights are approximately uniform across layers, with middle layers receiving only a slight advantage. Uncertainty signal appears to be <b>distributed throughout the network</b> rather than concentrated in specific layers. Each layer captures a different aspect of uncertainty: early layers encode syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. The near-uniform weighting suggests these signals are complementary rather than redundant.<br><br>
 
             Practical implication: multi-layer probes outperform single-layer approaches because they aggregate complementary uncertainty signals from across the network. While middle layers provide the best single-layer performance, the gains from combining layers indicate that no single layer captures the full uncertainty picture.<br><br>
 
             <span class="subsection">5.3 Internal vs. Expressed</span><br><br>
 
-            Fusion Probe detects when internal and expressed confidence diverge—for example, when hidden states encode uncertainty but the final layer produces confident logits. Our ablation comparing Fusion vs. Ensemble reveals that combining hidden states with logits provides substantial improvements (Brier score 0.121 → 0.098, a 19% reduction). This demonstrates that <b>miscalibration exists and is detectable</b>: logit features (entropy, margin, max probability) capture expressed confidence, while hidden states capture internal uncertainty. When these disagree, Fusion Probe identifies cases where the model appears confident but is internally uncertain.<br><br>
+            Fusion Probe detects when internal and expressed confidence diverge. For example, hidden states may encode uncertainty while the final layer produces confident logits. Our ablation comparing Fusion vs. Ensemble shows that combining hidden states with logits yields substantial improvements (Brier score 0.121 → 0.098, a 19% reduction). The result confirms that <b>miscalibration exists and is detectable</b>: logit features (entropy, margin, max probability) capture expressed confidence, while hidden states capture internal uncertainty. When these disagree, Fusion Probe identifies cases where the model appears confident but is internally uncertain.<br><br>
 
-            The improvement validates our hypothesis: internal and expressed confidence can diverge, and explicitly modeling both sources improves confidence prediction. The consistent gains indicate that logits provide complementary signal beyond hidden states alone—information about the model's "expressed" confidence that hidden states do not fully capture.<br><br>
+            These results support our hypothesis: internal and expressed confidence can diverge, and explicitly modeling both sources improves confidence prediction. The consistent gains indicate that logits provide complementary signal beyond hidden states alone, specifically information about the model's "expressed" confidence that hidden states do not fully capture.<br><br>
 
             <span class="subsection">5.4 Limitations</span><br><br>
 
             <ol>
               <li><b>Model-specific findings.</b> Our evaluation focuses on Qwen2.5-7B, and we observed that Llama-3.1-8B produced less calibrated probes (Brier scores ~0.10 higher). Uncertainty encoding may vary across model families and scales. <i>Mitigation:</i> Future work could develop model-agnostic probes by training on hidden states from multiple models, or use transfer learning to adapt probes across architectures.</li>
-              <li><b>Multiple-choice format.</b> MMLU's constrained 4-choice format may not reflect uncertainty patterns in open-ended generation. <i>Mitigation:</i> Combining probing with semantic entropy <a href="#ref_6">[6]</a>—using probes for efficient screening, then semantic clustering for high-uncertainty cases.</li>
+              <li><b>Multiple-choice format.</b> MMLU's constrained 4-choice format may not reflect uncertainty patterns in open-ended generation. <i>Mitigation:</i> Combining probing with semantic entropy <a href="#ref_6">[6]</a> by using probes for efficient screening, then semantic clustering for high-uncertainty cases.</li>
               <li><b>Single task type.</b> While MMLU spans 57 subjects, all questions are factual recall. Mathematical reasoning or open-domain QA may exhibit different uncertainty structures. <i>Mitigation:</i> Multi-task probe training across diverse benchmarks.</li>
-              <li><b>Static extraction.</b> We extract from a single forward pass at the final token. Uncertainty may evolve during chain-of-thought reasoning. <i>Mitigation:</i> Temporal probing—tracking hidden state evolution across reasoning steps.</li>
+              <li><b>Static extraction.</b> We extract from a single forward pass at the final token. Uncertainty may evolve during chain-of-thought reasoning. <i>Mitigation:</i> Temporal probing, tracking hidden state evolution across reasoning steps.</li>
             </ol><br>
 
             <span class="subsection">5.5 Practical Implications</span><br><br>
@@ -709,7 +709,7 @@ MathJax = {
 
             <span class="subsection">5.6 Future Directions</span><br><br>
 
-            Several extensions could build on this work. <b>Fine-grained layer analysis</b> (probing all 28 layers) would reveal how uncertainty representation evolves through the network. <b>Uncertainty steering</b> via activation engineering could enable controlled calibration by adding or subtracting the learned "uncertainty vector." <b>Cross-model transfer</b> experiments would test whether uncertainty encoding is universal or model-specific. <b>Uncertainty-aware decoding</b> could adapt sampling temperature based on probe outputs—exploring alternatives when uncertain, committing when confident. Finally, extending probes to <b>vision-language models</b> and <b>chain-of-thought reasoning</b> would address hallucination detection and temporal uncertainty dynamics in more complex generation settings.
+            Several extensions could build on this work. <b>Fine-grained layer analysis</b> (probing all 28 layers) would reveal how uncertainty representation evolves through the network. <b>Uncertainty steering</b> via activation engineering could enable controlled calibration by adding or subtracting the learned "uncertainty vector." <b>Cross-model transfer</b> experiments would test whether uncertainty encoding is universal or model-specific. <b>Uncertainty-aware decoding</b> could adapt sampling temperature based on probe outputs, exploring alternatives when uncertain and committing when confident. Finally, extending probes to <b>vision-language models</b> and <b>chain-of-thought reasoning</b> would address hallucination detection and temporal uncertainty dynamics in more complex generation settings.
 		    </div>
 		    <div class="margin-right-block">
             <b>Scope caveat:</b> Results are for Qwen2.5-7B on MMLU multiple-choice. Cross-model transfer and open-ended generation remain open questions for future work.
@@ -726,12 +726,12 @@ MathJax = {
             We set out to test whether a model's internal representation of uncertainty diverges from its expressed confidence, and whether this divergence can be detected to improve calibration. Our experiments on ~10,000 MMLU examples provide three key findings:<br><br>
 
             <ol>
-              <li><b>Internal and expressed confidence can diverge, and detecting this improves calibration.</b> Our Fusion Probe, which combines hidden states with output logits, achieves 19% better Brier score than hidden-state-only approaches (0.098 vs 0.121, \(p < 0.01\)). This demonstrates that models sometimes "know" they are uncertain internally while expressing confidence externally—and that fusing both signals reveals this miscalibration.</li><br>
+              <li><b>Internal and expressed confidence can diverge, and detecting this improves calibration.</b> Our Fusion Probe, which combines hidden states with output logits, achieves 19% better Brier score than hidden-state-only approaches (0.098 vs 0.121, \(p < 0.01\)). Models sometimes "know" they are uncertain internally while expressing confidence externally, and fusing both signals reveals this miscalibration.</li><br>
               <li><b>Uncertainty is linearly encoded and distributed across layers.</b> Linear probes match or outperform complex architectures (MLP, Hierarchical, Sparse) despite 200× fewer parameters, and learned layer weights are near-uniform, indicating uncertainty signal is distributed rather than localized.</li><br>
-              <li><b>Lightweight probes achieve strong calibration.</b> Our best probe achieves AUROC 0.904 and ECE 0.021 in a single forward pass—competitive with multi-sample methods like semantic entropy but 5-10× more efficient.</li>
+              <li><b>Lightweight probes achieve strong calibration.</b> Our best probe achieves AUROC 0.904 and ECE 0.021 in a single forward pass, competitive with multi-sample methods like semantic entropy but 5-10× more efficient.</li>
             </ol><br>
 
-            These findings validate our central hypothesis: models do "know what they don't know," and this knowledge can be extracted by fusing internal uncertainty with expressed confidence. The practical implication is a compute-performance tradeoff: single-layer linear probes offer efficient baseline uncertainty quantification, while multi-layer fusion probes achieve superior calibration for high-stakes applications. Both approaches enable selective prediction, uncertainty-triggered retrieval, and human escalation—making LLMs safer for real-world deployment. Our implementation is available on <a href="https://github.com/joshcliu/deep-learning">Github</a>.
+            These findings support our central hypothesis: models do "know what they don't know," and this knowledge can be extracted by fusing internal uncertainty with expressed confidence. In practice, this means a compute-performance tradeoff: single-layer linear probes offer efficient baseline uncertainty quantification, while multi-layer fusion probes achieve superior calibration for high-stakes applications. Both approaches enable selective prediction, uncertainty-triggered retrieval, and human escalation, making LLMs safer for real-world deployment. Our implementation is available on <a href="https://github.com/joshcliu/deep-learning">Github</a>.
 		    </div>
 		    <div class="margin-right-block">
 		    </div>
