@@ -215,13 +215,13 @@ MathJax = {
 		    <div class="main-content-block">
 						<h1>1. Introduction</h1>
 
-            Large language models (LLMs) frequently produce confident incorrect answers, particularly in high-stakes domains like medicine, law, and finance <a href="#ref_1">[1]</a><a href="#ref_2">[2]</a>. The core challenge is not just that models make mistakes, but that they provide little reliable signal about when they might be wrong. Reliable uncertainty estimates would enable selective prediction, retrieval augmentation, and human escalation, making LLMs safer for real-world deployment. Do models "know what they don't know," and if so, can we extract that knowledge from their internal representations?<br><br>
+            Large language models (LLMs) are known to present incorrect answers with high confidence, which is particularly problematic in high-stakes domains like medicine, law, and finance <a href="#ref_1">[1]</a><a href="#ref_2">[2]</a>. A significant obstacle in decreasing the rate of such mistakes is the lack of a reliable signal regarding when an LLM is wrong. Reliable uncertainty estimates would allow models to return answers only when fairly certain, optimize when to look up information, and know when to defer to a human user, making LLMs safer for real-world scenarios. We investigate whether models know what they don't know, and whether that knowledge can be gleaned from their internal representations.<br><br>
 
             <div class="hypothesis">
-              <b>Central Hypothesis:</b> A model's internal representation of uncertainty can diverge from the confidence it expresses in its outputs. By probing hidden layers with both linear and nonlinear architectures, we can accurately measure the model's confidence and uncertainty.
+              <b>Central Hypothesis:</b> A model's internal representation of uncertainty can differ from the confidence it expresses in its outputs. By probing hidden layers with both linear and nonlinear architectures, we can accurately measure the model's confidence and uncertainty.
             </div><br>
 
-            Evidence suggests such internal signals exist: Kadavath et al. <a href="#ref_3">[3]</a> showed LLMs can predict their own correctness well above chance, Burns et al. <a href="#ref_4">[4]</a> found that hidden states encode truthfulness even without supervised labels, and Gurnee & Tegmark <a href="#ref_5">[5]</a> demonstrated that middle transformer layers encode richer semantic information than final layers. We use probing, a technique that trains lightweight classifiers on frozen hidden states, as introduced by Hewitt & Manning <a href="#ref_6">[6]</a> and later used for LLM error detection by Azaria & Mitchell <a href="#ref_7">[7]</a>. Using this approach, we investigate three questions: (1) Is uncertainty linearly encoded or does it require non-linear extraction? (2) Which layers encode uncertainty most strongly? and (3) Does combining hidden states with output logits improve calibration?
+            Evidence suggests such internal signals exist: Kadavath et al. <a href="#ref_3">[3]</a> showed LLMs can predict their own correctness well above chance, Burns et al. <a href="#ref_4">[4]</a> found that hidden states encode truthfulness even without supervised labels, and Gurnee & Tegmark <a href="#ref_5">[5]</a> demonstrated that middle transformer layers encode richer semantic information than final layers. We use probing, a technique that trains lightweight classifiers on frozen hidden states, as introduced by Hewitt & Manning <a href="#ref_6">[6]</a> and later used for LLM error detection by Azaria & Mitchell <a href="#ref_7">[7]</a>. Using this approach, we investigate three questions: (1) Is uncertainty linearly encoded or does it require non-linear extraction? (2) Which layers encode uncertainty most strongly? and (3) Does combining hidden states with output logits improve probe calibration?
 		    </div>
 		    <div class="margin-right-block">
 		    </div>
@@ -235,26 +235,24 @@ MathJax = {
 		    <div class="main-content-block">
 					<h1>2. Background and Related Work</h1>
 
-          Existing uncertainty quantification methods for LLMs fall into three categories. <b>Token probability methods</b> use the model's softmax scores as confidence, but Jiang et al. <a href="#ref_8">[8]</a> showed these are often poorly calibrated. <b>Consistency-based methods</b> like semantic entropy <a href="#ref_9">[9]</a> generate multiple responses and measure agreement, achieving strong hallucination detection but requiring 5-10 forward passes per query. <b>Verbalized confidence</b> asks models to self-report uncertainty, but Xiong et al. <a href="#ref_10">[10]</a> found they tend to be systematically overconfident. These limitations motivate looking inside the model's internal representations.<br><br>
+          Existing uncertainty quantification methods for LLMs fall into three categories. <b>Token probability methods</b> use the model's softmax scores as confidence, but Jiang et al. <a href="#ref_8">[8]</a> showed these are often poorly calibrated. <b>Consistency-based methods</b> like semantic entropy <a href="#ref_9">[9]</a> generate multiple responses and measure agreement, allowing hallucination detection but requiring 5-10 forward passes per query. <b>Verbalized confidence</b> asks models to self-report uncertainty, but Xiong et al. <a href="#ref_10">[10]</a> found they tend to be systematically overconfident. These limitations motivate looking inside the model's internal representations.<br><br>
 
         <span class="subsection">2.1 Probing Internal Representations</span>
           <p>
-          Our approach fits into a fourth paradigm: probing internal representations. The basic idea
-          is that if a model has already computed something like “confidence” internally, we should
-          be able to read it out by training a small classifier on its hidden states. This aims to
-          keep the single-forward-pass efficiency of logit-based methods while tapping into
-          potentially richer signals than output probabilities or verbalized confidence.
+          Our approach fits into a fourth paradigm of probing internal representations. If a model has already computed something like “confidence” internally, we should
+          be able to record it by training a small classifier on its hidden states. This aims to
+          keep the single-forward-pass efficiency of logit-based methods while possibly revealing
+          richer signals than output probabilities or self-reported confidence.
           </p>
           
           <p>
           Probing itself has a long history in NLP. Hewitt and Manning
           <a href="#ref_6">[6]</a> showed that syntactic structure can be linearly recovered from BERT's
           hidden space, suggesting that if a property is linearly extractable, the model has likely
-          computed it explicitly, whereas properties that only appear under complex nonlinear probes
-          may be artifacts of the probe. For uncertainty, Kadavath et al. <a href="#ref_3">[3]</a> found that
+          computed it explicitly. For uncertainty, Kadavath et al. <a href="#ref_3">[3]</a> found that
           large LLMs can meaningfully judge their own answers, and Burns et al.
-          <a href="#ref_4">[4]</a> proposed Contrast-Consistent Search (CCS), which recovers a truthfulness signal
-          from hidden states without labels, though it relies on contrastive statement pairs and does
+          <a href="#ref_4">[4]</a> proposed Contrast-Consistent Search (CCS), which finds a truthfulness signal
+          from hidden states without labels, though it relies on comparing pairs of sentences and does
           not directly handle open-ended generation.
           </p>
           
