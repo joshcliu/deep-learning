@@ -362,9 +362,10 @@
               Prior work typically probes single layers <a href="#ref_14">[14]</a> or uses naive
               concatenation, leaving open how uncertainty signals spread across early, middle, and late
               layers.<br>
-              <i>Our contribution:</i> We evaluate four fusion strategies: concatenation, learned weighted
-              ensembles, attention-based aggregation, and combining hidden states with logits, to identify
-              how to best aggregate cross-layer uncertainty information.
+              <i>Our contribution:</i> We introduce a multi-layer ensemble approach with learned weighted
+              aggregation that automatically discovers which layers encode the most uncertainty information.
+              By training softmax-normalized combination weights over quartile layers, we empirically identify
+              that middle layers (50-75% depth) dominate uncertainty prediction.
             </li>
             <br>
             <li>
@@ -372,9 +373,11 @@
               Existing studies usually focus on either hidden-state signals
               <a href="#ref_14">[14]</a> or output probabilities <a href="#ref_11">[11]</a> in isolation, so
               the role of their disagreement as a miscalibration signal is underexplored.<br>
-              <i>Our contribution:</i> We introduce a Fusion Probe that jointly uses hidden-state features
-              and logit-based confidence, and show that their interaction yields our strongest
-              miscalibration detection performance.
+              <i>Our contribution:</i> We introduce a Fusion Probe architecture that combines hidden states
+              from multiple layers with output logit features (entropy, margin, max probability) using
+              cross-layer attention and learned weighted aggregation. This approach detects miscalibration
+              by identifying cases where internal uncertainty (hidden states) and expressed confidence (logits)
+              diverge.
             </li>
             <br>
             <li>
@@ -659,7 +662,7 @@
 
           <b>Why k-fold CV?</b> With ~2K examples, a single 60/20/20 split wastes data. K-fold ensures all examples contribute to both training and evaluation, yielding more reliable estimates.<br><br>
 
-          <b>Why two-stage experiments?</b> Experiment 1 tests four architectures (Linear, MLP, Hierarchical, Sparse) to identify the best probe design. Experiment 2 builds on these findings by testing three information source configurations (single layer, multi-layer ensemble, fusion with logits) to determine how combining signals improves confidence-correction correlation.
+          <b>Why two-stage experiments?</b> Experiment 1 tests four architectures (Linear, MLP, Hierarchical, Sparse) to identify the best probe design. Experiment 2 builds on the finding that linear probes are effective by testing three information aggregation strategies: single-layer linear probe, multi-layer ensemble of linear probes with learned weights, and fusion architecture that combines per-layer linear probes with output logit features. This tests whether the advantage comes from the probe architecture itself or from the information provided as input.
 		    </div>
 		</div>
 
