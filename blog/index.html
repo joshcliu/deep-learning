@@ -199,19 +199,13 @@
 		    <div class="main-content-block">
 						<h1>1. Introduction</h1>
 
-            Imagine asking an AI assistant about a medication interaction and getting a fluent, confident, citation-filled answer, only to later discover that the information was completely wrong. This is not a rare edge case but a routine behavior of large language models (LLMs), which often produce plausible-sounding falsehoods with the same apparent confidence as established facts <a href="#ref_1">[1]</a>. These “hallucinations” are especially concerning in high-stakes domains like law, medicine, and science, where fabricated precedents, incorrect dosages, or fictional citations can have real consequences <a href="#ref_2">[2]</a>. The problem is not just that models make mistakes; it is that they offer little reliable signal about when they are likely to be wrong.<br><br>
-
-            This raises a natural question: can models “know what they don’t know,” and if so, can we access that knowledge through their internal representations rather than their surface behavior?<br><br>
+            Large language models (LLMs) frequently produce confident incorrect answers, particularly in high-stakes domains <a href="#ref_1">[1]</a><a href="#ref_2">[2]</a>. The core challenge is not just that models make mistakes, but that they provide little reliable signal about when they are likely to be wrong. Can models "know what they don't know," and if so, can we extract that knowledge from their internal representations?<br><br>
 
             <div class="hypothesis">
               <b>Central Hypothesis:</b> A model's internal representation of uncertainty can diverge from the confidence it expresses in its outputs. By probing hidden layers with both linear and nonlinear architectures, we can detect cases where the model is internally uncertain despite issuing confident predictions.
             </div><br>
 
-            There is growing evidence that such internal signals exist. Kadavath et al. <a href="#ref_3">[3]</a> showed that LLMs perform above chance when asked to predict whether their own answers are correct. Burns et al. <a href="#ref_4">[4]</a> found that hidden states alone can separate true from false statements, suggesting that something like “truthfulness” is already encoded internally. Layer-wise studies further indicate that middle transformer layers encode richer semantic information than final layers <a href="#ref_5">[5]</a>, hinting that the model’s “thinking” may peak in the middle, with later layers mostly formatting outputs.<br><br>
-
-            What remains unclear is how uncertainty is organized inside the network and how best to extract it. Is uncertainty linearly encoded, or does it require more expressive probes? Is it localized to specific layers or distributed across many? And how does internal uncertainty relate to the model’s expressed confidence at the logits?<br><br>
-
-            In this work, we take a systematic probing-based approach to these questions, comparing linear and nonlinear probes across layers and models, and exploring how internal signals interact with output-based confidence.
+            Evidence suggests such internal signals exist: LLMs perform above chance when predicting their own correctness <a href="#ref_3">[3]</a>, hidden states encode truthfulness <a href="#ref_4">[4]</a>, and middle transformer layers encode richer semantic information than final layers <a href="#ref_5">[5]</a>. We use <b>probing</b>—training lightweight classifiers on frozen hidden states <a href="#ref_13">[13]</a><a href="#ref_14">[14]</a>—to systematically investigate: (1) Is uncertainty linearly encoded, or does it require complex non-linear extraction? (2) Which layers encode uncertainty most strongly? (3) Does combining hidden states with output logits improve calibration?
 		    </div>
 		    <div class="margin-right-block">
             <b>Why does this matter?</b> Reliable uncertainty estimates enable selective prediction (abstaining on hard cases), retrieval augmentation (calling external knowledge when needed), and human-in-the-loop workflows (routing dubious answers to experts), making LLMs safer and more trustworthy in real-world use.
@@ -394,7 +388,7 @@
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
-            <b>Why Qwen?</b> Why Qwen? We selected Qwen2.5-7B after evaluating several 7B-scale models, including Mistral-7B, because it offers strong performance, open accessibility, and reliable reproducibility. Preliminary tests showed that probes trained on Mistral-7B hidden states produced noticeably worse calibration—about 0.10 higher Brier scores—than those trained on Qwen2.5-7B. Given this consistent empirical advantage, Qwen2.5-7B was the natural choice for our study.<br><br>
+            <b>Why Qwen?</b> We selected Qwen2.5-7B after evaluating several 7B-scale models, including Mistral-7B, because it offers strong performance, open accessibility, and reliable reproducibility. Preliminary tests showed that probes trained on Mistral-7B hidden states produced noticeably worse calibration—about 0.10 higher Brier scores—than those trained on Qwen2.5-7B. Given this consistent empirical advantage, Qwen2.5-7B was the natural choice for our study.<br><br>
 		    </div>
 		</div>
 
@@ -404,9 +398,9 @@
 		    <div class="main-content-block">
             <b>3.5 Training Protocol</b><br><br>
 
-            We use <b>5-fold cross-validation</b>, training on 1,200 examples and validating on 300 examples in each fold. for robust evaluation, training on 1,200 examples and validating on 300 examples in each fold. This allows us to use all data for both training and evaluation while avoiding overfitting to a single train/test split.<br><br>
+            We use <b>5-fold cross-validation</b> (1,200 train, 300 validation per fold), ensuring all data contributes to both training and evaluation.<br><br>
 
-            All probes are trained with: 
+            All probes are trained with:
             <ul>
               <li><b>Loss:</b> Brier score (squared error between predicted probability and binary label):
                 <math xmlns="http://www.w3.org/1998/Math/MathML" style="display: inline-block; vertical-align: middle; margin-left: 8px;">
@@ -422,9 +416,9 @@
                   </msup>
                 </math>
               </li>
-              <li><b>Optimizer:</b> AdamW with learning rate 1e-3 and weight decay 1e-5</li>
-              <li><b>Schedule:</b> Cosine annealing over 100 epochs (decaying to 1% of initial LR)</li>
-              <li><b>Selection:</b> Best validation Brier score checkpoint restored after training</li>
+              <li><b>Optimizer:</b> AdamW (lr=1e-3, weight_decay=1e-5)</li>
+              <li><b>Schedule:</b> Cosine annealing over 100 epochs</li>
+              <li><b>Selection:</b> Best validation Brier score checkpoint</li>
             </ul><br>
 
 		    </div>
@@ -766,29 +760,21 @@
 
             <b>6.1 Linear vs. Non-linear: A Surprising Result</b><br><br>
 
-            Our comparison between Linear Probe and MLP Probe reveals a striking finding: <b>the Linear Probe substantially outperforms the MLP Probe</b> (Brier=0.166 vs 0.266, ECE=0.074 vs 0.224). Rather than providing improvements, the higher-capacity MLP Probe achieves <i>worse</i> calibration, with a Brier score 0.10 higher than the linear baseline.<br><br>
+            The Linear Probe substantially outperforms the MLP Probe (Brier 0.166 vs 0.266, ECE 0.074 vs 0.224), with higher-capacity models achieving worse calibration. This validates the linear representation hypothesis <a href="#ref_16">[16]</a>: uncertainty is encoded as a geometric direction in hidden space, not in complex non-linear relationships. The MLP Probe overfits to spurious correlations, while the capacity-limited Linear Probe finds a robust uncertainty direction.<br><br>
 
-            This result strongly validates the linear representation hypothesis <a href="#ref_16">[16]</a> for uncertainty encoding. Not only is uncertainty linearly decodable, but adding non-linear capacity actively hurts performance, likely due to overfitting. The MLP Probe can learn spurious correlations in the high-dimensional hidden space that don't generalize, while the capacity-limited Linear Probe is forced to find a robust direction that corresponds to genuine uncertainty.<br><br>
-
-            This finding has important implications. First, it provides clean evidence that uncertainty is explicitly represented as a geometric direction in hidden space, not latent in complex relationships between dimensions. Second, it suggests that the model's own readout mechanism (a linear projection) could, in principle, access this uncertainty signal directly, supporting interpretability and potential steering applications. Third, it implies that simple, capacity-limited probes are not just sufficient but <i>preferable</i> for uncertainty extraction.<br><br>
-
-            The performance gap also validates our methodological choice of Brier loss: a proper scoring rule that penalizes overconfident wrong predictions. The MLP Probe's poor calibration suggests it learns to make confident predictions without regard to actual correctness, exactly the behavior Brier loss is designed to discourage, but which higher capacity enables.<br><br>
+            This has three implications: (1) uncertainty is explicitly represented geometrically, making it accessible to the model's own linear readout mechanism for interpretability and steering, (2) simple probes are preferable, not just sufficient, and (3) Brier loss successfully prevents the overconfident predictions that higher capacity enables.<br><br>
 
             <b>6.2 The Layer Question: Where Should We Probe?</b><br><br>
 
-            Ensemble Probe's learned weights empirically answer a question that prior work has addressed theoretically: which transformer layers encode the most uncertainty information? Our results consistently show that <b>middle layers (14, 21) dominate</b>, with layer 14 (50% depth) and layer 21 (75% depth) receiving the highest weights, typically accounting for 60-70% of the total ensemble weight. Layer 7 (25% depth) receives moderate weight (~15-20%), while the final layer (27, 96% depth) receives the lowest weight (~10-15%).<br><br>
+            Ensemble Probe's learned weights show that <b>middle layers (14, 21) dominate</b>, with layers at 50% and 75% depth accounting for 60-70% of total weight. Layer 7 (25% depth) receives moderate weight (~15-20%), while the final layer receives lowest weight (~10-15%). This confirms the hypothesis that early layers handle syntax, middle layers handle semantics, and final layers specialize for output formatting. Uncertainty about meaning and correctness peaks in middle layers, where the model has processed semantic content but not yet committed to output format. By the final layer, uncertainty information may be partially lost during mapping to vocabulary space.<br><br>
 
-            This finding confirms the intuition that early layers handle syntax, middle layers handle semantics, and final layers specialize for output formatting. Uncertainty about <i>meaning</i> and <i>correctness</i> peaks in the middle layers, where the model has processed semantic content but not yet committed to a specific output format. The relatively low weight on the final layer suggests that by the time representations reach the output head, uncertainty information may be partially lost or distorted during the mapping to vocabulary space.<br><br>
-
-            This has practical implications: probes should focus on middle layers (roughly 50-75% of network depth) rather than final layers for optimal uncertainty extraction. The finding also validates the design choice of extracting from quartile positions, as it captures the layers where uncertainty signals are strongest.<br><br>
+            Practical implication: probes should focus on middle layers (50-75% depth) rather than final layers for optimal uncertainty extraction.<br><br>
 
             <b>6.3 Internal vs. Expressed: The Miscalibration Hypothesis</b><br><br>
 
-            The key motivation for Fusion Probe is detecting cases where internal and expressed confidence diverge. Consider a concrete scenario: the model's hidden states at layer 14 encode uncertainty (the embedding is in a "low confidence" region), but the final layer produces confident logits. This is exactly the dangerous miscalibration we want to detect.<br><br>
+            Fusion Probe detects when internal and expressed confidence diverge—for example, when hidden states encode uncertainty but the final layer produces confident logits. Our ablation comparing Fusion vs. Ensemble reveals that combining hidden states with logits provides consistent improvements (Brier scores 0.01-0.02 lower). This demonstrates that <b>miscalibration exists and is detectable</b>: logit features (entropy, margin, max probability) capture expressed confidence, while hidden states capture internal uncertainty. When these disagree, Fusion Probe identifies cases where the model appears confident but is internally uncertain.<br><br>
 
-            Our ablation comparing Fusion Probe vs. Ensemble Probe reveals that combining hidden states with logits provides consistent improvements, with Fusion Probe achieving Brier scores 0.01-0.02 lower than Ensemble Probe. This indicates that <b>miscalibration exists and is detectable</b>: the model's hidden states contain uncertainty signals that are partially lost or distorted in the final output. The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture its internal uncertainty; when these disagree, Fusion Probe can identify cases where the model appears confident but is internally uncertain.<br><br>
-
-            The improvement, while modest, is consistent and statistically significant. This suggests that while hidden states are the primary source of uncertainty information, logits provide complementary signal that helps detect miscalibration. The finding validates our hypothesis that internal and expressed confidence can diverge, and that explicitly modeling both sources improves confidence prediction.<br><br>
+            The improvement validates our hypothesis: internal and expressed confidence can diverge, and explicitly modeling both sources improves confidence prediction. While modest, the gain is consistent and statistically significant, indicating that logits provide complementary signal beyond hidden states alone.<br><br>
 
             <b>6.4 Key Findings from Our Experiments</b><br><br>
 
@@ -827,14 +813,13 @@
               <li><b>Confidence calibration:</b> Post-process outputs to provide users with accurate uncertainty estimates.</li>
             </ul>
 
-            The single-pass efficiency of probing (vs. 5-10 passes for semantic entropy) makes it practical for production deployment.
+            The single-pass efficiency of probing (vs. 5-10 passes for semantic entropy) makes it practical for production deployment.<br><br>
+
+            <b>6.6 Future Directions</b><br><br>
+
+            Key extensions include probing all 32 layers (rather than quartiles) to identify precise optimal ranges, evaluation on high-stakes domains (medical, legal) where miscalibration has real consequences, cross-model transfer experiments to test generalization, extension to open-ended generation using semantic clustering <a href="#ref_6">[6]</a>, and mechanistic interpretability via activation patching to identify specific uncertainty-encoding circuits.
 		    </div>
-		    <div class="margin-right-block" style="transform: translate(0%, -35%);">
-            <b>Honest assessment:</b> This project tests whether existing intuitions about hidden state uncertainty can be operationalized. We don't claim novel theoretical insights; rather, we systematically validate hypotheses from prior work.<br><br>
-
-            If linear probes suffice, our contribution is demonstrating that simple, interpretable approaches work. If Fusion Probe helps, we've identified a useful architectural pattern for combining information sources.<br><br>
-
-            <b>What would falsify our hypothesis?</b> If all probes perform near chance (AUROC ~0.5), hidden states don't encode extractable uncertainty. If simple probes fail to improve calibration, hidden states may not contain useful uncertainty signals.
+		    <div class="margin-right-block">
 		    </div>
 		</div>
 
@@ -845,42 +830,9 @@
 		    <div class="main-content-block">
 						<h1>7. Conclusion</h1>
 
-            We investigated whether LLM hidden states contain extractable uncertainty signals that predict answer correctness. Through experiments on MMLU (2,000 examples spanning 57 subjects), we systematically compared multiple probe architectures embodying different hypotheses about how uncertainty is encoded.<br><br>
-
-            <b>Key Findings:</b>
-            <ol>
-              <li><b>Probes achieve strong calibration:</b> All probe architectures achieve good calibration (low Brier scores and ECE), confirming that hidden states encode extractable uncertainty information.</li>
-              <li><b>Uncertainty is linearly encoded:</b> Linear Probe <i>outperforms</i> MLP Probe substantially (Brier=0.166 vs 0.266), strongly validating the linear representation hypothesis. Higher-capacity probes overfit rather than extract richer signals, confirming that uncertainty corresponds to a simple direction in hidden space, a finding that supports interpretability and steering applications.</li>
-              <li><b>Middle layers dominate:</b> Ensemble Probe's learned weights consistently show that middle layers (50-75% depth, specifically layers 14 and 21) encode the richest uncertainty signals, accounting for 60-70% of ensemble weight. This confirms that uncertainty about meaning peaks in middle layers, before final layers specialize for output formatting.</li>
-              <li><b>Combining hidden states and logits helps:</b> Fusion Probe outperforms Ensemble Probe by 0.01-0.02 Brier score, demonstrating that internal uncertainty (hidden states) and expressed confidence (logits) can diverge, and that detecting this miscalibration improves confidence prediction.</li>
-            </ol><br>
-
-            <div class="hypothesis">
-              <b>Main Takeaway:</b> Hidden states contain extractable uncertainty information that substantially improves upon raw softmax confidence. Uncertainty is linearly encoded in middle layers (50-75% depth), and critically, linear probes <i>outperform</i> non-linear alternatives, suggesting uncertainty exists as a simple geometric direction rather than distributed patterns. This makes it directly accessible via simple probes and potentially steerable via representation engineering.
-            </div><br>
-
-            <b>Contributions:</b>
-            <ul>
-              <li><b>Systematic architecture comparison:</b> We evaluate four probe architectures (Linear, MLP, Hierarchical, Sparse) to test hypotheses about uncertainty structure, then evaluate three information source configurations (single layer, multi-layer ensemble, fusion with logits) to test how combining signals improves confidence-correction correlation.</li>
-              <li><b>Fusion Probe:</b> A novel architecture designed to detect miscalibration between internal uncertainty and expressed confidence by combining hidden states with logit features.</li>
-              <li><b>Brier loss training:</b> Using a proper scoring rule encourages probe calibration, not just discrimination.</li>
-              <li><b>Open-source framework:</b> Complete codebase for reproducible LLM confidence probing experiments.</li>
-            </ul><br>
-
-            <b>Future Directions:</b>
-            <ul>
-              <li><b>Cross-model evaluation:</b> Do probes transfer across model families (Mistral, Qwen) and scales (7B → 70B)?</li>
-              <li><b>Open-ended generation:</b> Extend to free-form responses using semantic clustering for correctness labels.</li>
-              <li><b>Causal analysis:</b> Use activation patching to identify specific circuits responsible for uncertainty encoding.</li>
-              <li><b>Confidence steering:</b> If we can read uncertainty from hidden states, can we write to it, steering model behavior toward appropriate uncertainty expression?</li>
-            </ul><br>
-
-            <b>Code Availability:</b> Our implementation is available at <a href="https://github.com/joshcliu/deep-learning">github.com/joshcliu/deep-learning</a>.
+            We systematically evaluated how architectural choices and information sources affect uncertainty extraction from LLM hidden states. Experiments on MMLU (2,000 examples, 57 subjects) reveal three key findings. First, uncertainty is linearly encoded: linear probes outperform MLP probes (Brier 0.166 vs 0.266, ECE 0.074 vs 0.224), with higher-capacity models overfitting rather than extracting richer signals. Second, learned ensemble weights show that middle layers (50-75% depth) encode the richest uncertainty signals, accounting for 60-70% of total weight. Third, fusion of hidden states with output logits (AUROC 0.789, Brier 0.171) outperforms hidden states alone, demonstrating that internal uncertainty and expressed confidence provide complementary calibration signals. These findings suggest uncertainty exists as a simple geometric direction in middle layers, accessible via linear probes with 100× fewer parameters than complex architectures—a result that enables interpretability and potential steering applications. Our implementation is available at <a href="https://github.com/joshcliu/deep-learning">github.com/joshcliu/deep-learning</a>.
 		    </div>
 		    <div class="margin-right-block">
-            <b>The bigger picture:</b> As LLMs are deployed in high-stakes domains, accurate uncertainty quantification becomes essential. Users need to know when to trust model outputs. Our work contributes to this goal by demonstrating that uncertainty information exists in hidden states and can be extracted with simple probes.<br><br>
-
-            The single-pass efficiency of probing makes it practical for production systems, unlike multi-sample consistency methods.
 		    </div>
 		</div>
 
