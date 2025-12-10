@@ -190,7 +190,8 @@
               <a href="#intro">Introduction</a><br><br>
               <a href="#background">Background</a><br><br>
               <a href="#methodology">Methodology</a><br><br>
-              <a href="#architecture">Experiments</a><br><br>
+              <a href="#architecture">Our Approach</a><br><br>
+              <a href="#results">Results</a><br><br>
               <a href="#analysis">Discussion</a><br><br>
               <a href="#conclusion">Conclusion</a><br><br>
           </div>
@@ -201,7 +202,7 @@
             Large language models (LLMs) frequently produce confident incorrect answers, particularly in high-stakes domains <a href="#ref_1">[1]</a><a href="#ref_2">[2]</a>. The core challenge is not just that models make mistakes, but that they provide little reliable signal about when they are likely to be wrong. Can models "know what they don't know," and if so, can we extract that knowledge from their internal representations?<br><br>
 
             <div class="hypothesis">
-              <b>Central Hypothesis:</b> Hidden states contain uncertainty signals that can be extracted to predict answer correctness. Combining internal uncertainty (hidden states) with expressed confidence (output logits) improves calibration over logit-based methods alone.
+              <b>Central Hypothesis:</b> A model's internal representation of uncertainty can diverge from the confidence it expresses in its outputs. By probing hidden layers with both linear and nonlinear architectures, we can detect cases where the model is internally uncertain despite issuing confident predictions.
             </div><br>
 
             Evidence suggests such internal signals exist: LLMs perform above chance when predicting their own correctness <a href="#ref_3">[3]</a>, hidden states encode truthfulness <a href="#ref_4">[4]</a>, and middle transformer layers encode richer semantic information than final layers <a href="#ref_5">[5]</a>. We use <b>probing</b>—training lightweight classifiers on frozen hidden states <a href="#ref_13">[13]</a><a href="#ref_14">[14]</a>—to systematically investigate: (1) Is uncertainty linearly encoded, or does it require complex non-linear extraction? (2) Which layers encode uncertainty most strongly? (3) Does combining hidden states with output logits improve calibration?
@@ -368,6 +369,15 @@
 
             Each example receives a <b>binary correctness label</b>: 1 if the model's answer matches ground truth, 0 otherwise. We do not use partial credit; the model is either right or wrong. This clean supervision signal makes probe training straightforward.<br><br>
 
+		    </div>
+		    <div class="margin-right-block">
+		    </div>
+		</div>
+
+		<div class="content-margin-container">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
             <b>3.4 Model and Hidden State Extraction</b><br><br>
             <ul>
               <li><b>Model Selection: </b> We chose Qwen2.5-7B for our systematic evaluation after comparing multiple 7B-scale models.</li> 
@@ -377,8 +387,8 @@
             </ul><br>
 
 		    </div>
-		    <div class="margin-right-block" style="transform: translate(0%, 0%);">
-          <b>Why Qwen?</b> We chose Qwen2.5-7B (32 layers, 3584 hidden dimension) after evaluating several 7B-scale models. Qwen offers strong performance and accessibility without gating restrictions. Preliminary experiments showed probes trained on Mistral-7B had Brier scores 0.10 higher than Qwen2.5-7B.
+		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
+            <b>Why Qwen?</b> We selected Qwen2.5-7B after evaluating several 7B-scale models, including Mistral-7B, because it offers strong performance, open accessibility, and reliable reproducibility. Preliminary tests showed that probes trained on Mistral-7B hidden states produced noticeably worse calibration—about 0.10 higher Brier scores—than those trained on Qwen2.5-7B. Given this consistent empirical advantage, Qwen2.5-7B was the natural choice for our study.<br><br>
 		    </div>
 		</div>
 
@@ -411,10 +421,9 @@
               <li><b>Selection:</b> Best validation Brier score checkpoint</li>
             </ul><br>
 
-            Brier score is a <i>proper scoring rule</i> uniquely minimized when predictions equal true probabilities, encouraging calibration during training rather than just discrimination.<br><br>
-
 		    </div>
-		    <div class="margin-right-block">
+		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
+            <b>Why Brier score instead of binary cross-entropy?</b> BCE can be minimized by making confident predictions regardless of accuracy, while Brier score is a <i>proper scoring rule</i>: it's uniquely minimized when predictions equal true probabilities. This encourages calibration during training, not just discrimination.<br><br>
 		    </div>
 		</div>
 
