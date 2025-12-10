@@ -447,7 +447,7 @@ MathJax = {
 		    <div class="main-content-block">
             <span class="subsection">3.4 Training Protocol</span><br><br>
 
-            We use 5-fold stratified cross-validation over 1,531 examples. In each fold, about 306 examples are held out as a test set, while the remaining data are split into ~980 training and 245 validation examples, so that each example is used for training in four folds and for testing in one fold.<br><br>
+            We use 10-fold cross validation over ~10,000 examples (combining MMLU and MMLU-Pro). In each fold, ~1,000 examples are held out as a test set, while the remaining data are split into ~8,100 training and ~900 validation examples, so that each example is used for training in nine folds and for testing in one fold.<br><br>
 
             All probes are trained with:
             <ul>
@@ -478,7 +478,7 @@ MathJax = {
 
             <span class="subsection">4.1 Experimental Setup</span><br><br>
 
-            <b>Model:</b> We use <b>Qwen2.5-7B</b> with 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. We selected Qwen after preliminary tests showed probes trained on Llama-3.1-8B produced ~0.10 higher Brier scores, indicating worse calibration.<br><br>
+            <b>Model:</b> We use <b>Qwen2.5-7B</b> with 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. We selected Qwen after preliminary tests comparing Qwen2.5-7B, Mistral-7B, and Llama-3.1-8B showed that probes trained on Mistral and Llama produced ~0.10 higher Brier scores, indicating worse calibration.<br><br>
 
             <b>Hidden State Extraction:</b> We extract hidden states at \(k\) evenly-spaced quantile layer positions. After preliminary testing with \(k \in \{2, 4, 6, 8\}\), we selected \(k = 4\), yielding layers [7, 14, 21, 27] for Qwen2.5-7B's 28-layer architecture. These positions capture early (syntactic), middle (semantic), and late (task-specific) processing stages. We use the <b>last token</b> hidden state, which aggregates context via attention and represents the model's "decision point."<br><br>
 
@@ -578,13 +578,13 @@ MathJax = {
 
             <b>Finding:</b> <b>Linear probe wins</b> despite being 200× smaller than complex alternatives. The linear probe achieves AUROC of 0.829 and Brier score of 0.143, outperforming the MLP probe (AUROC 0.702, Brier 0.243) and matching or exceeding more complex architectures like Hierarchical (AUROC 0.818, Brier 0.143) and Sparse (AUROC 0.833, Brier 0.142).<br><br>
 
+            <b>Why does linear win with a single layer?</b> When restricted to a single layer, the available uncertainty signal is limited. Complex architectures (MLP, Hierarchical, Sparse) have sufficient capacity to memorize training examples or fit spurious correlations in the high-dimensional hidden space, but these patterns fail to generalize. The capacity-constrained linear probe is forced to find the single most robust direction corresponding to genuine uncertainty, avoiding overfitting. This validates the linear representation hypothesis <a href="#ref_16">[16]</a>: when signal is sparse, simplicity wins.<br><br>
+
             <b>Layer Analysis:</b><br><br>
 
             <img src="./images/layer_confidence.png" width=700px/><br><br>
 
-            To understand where uncertainty is encoded, we analyze the performance of linear probes across different layers. Our results confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layer 21 (69% depth) achieves the best performance. Early layers (7, 25% depth) and final layers (27, 87% depth) contain less uncertainty information, suggesting that uncertainty about meaning and correctness peaks in middle layers, before final layers specialize for output formatting.<br><br>
-
-            This indicates that uncertainty is linearly encoded as a geometric direction in hidden space. Complex architectures overfit by learning spurious correlations in the high-dimensional hidden space that don't generalize, while the capacity-limited linear probe is forced to find a robust direction that corresponds to genuine uncertainty. This finding strongly validates the linear representation hypothesis <a href="#ref_16">[16]</a> and has important implications: uncertainty is explicitly represented as a geometric direction, making it directly accessible via simple probes and potentially steerable via vector arithmetic.<br><br>
+            To understand where uncertainty is encoded, we analyze linear probe performance across layers. Our results confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) achieves the best single-layer performance. Early layers (7, 25% depth) encode primarily syntactic information, while final layers (27, 96% depth) specialize for output formatting—neither captures uncertainty as strongly as middle layers where semantic processing peaks.<br><br>
 
             <b>Calibration Analysis:</b><br><br>
 
@@ -619,41 +619,43 @@ MathJax = {
               <tr>
                 <td>Single Layer</td>
                 <td>Layer 14</td>
-                <td>0.651</td>
-                <td>0.631</td>
-                <td>0.228</td>
-                <td>0.085</td>
+                <td>0.801</td>
+                <td>0.829</td>
+                <td>0.143</td>
+                <td>0.033</td>
               </tr>
               <tr>
                 <td>Ensemble</td>
                 <td>4 layers</td>
-                <td>0.645</td>
-                <td>0.497</td>
-                <td>0.355</td>
-                <td>0.355</td>
+                <td>0.837</td>
+                <td>0.862</td>
+                <td>0.121</td>
+                <td>0.028</td>
               </tr>
               <tr>
                 <td><b>Fusion</b></td>
                 <td><b>4 layers + logits</b></td>
-                <td><b>0.739</b></td>
-                <td><b>0.789</b></td>
-                <td><b>0.171</b></td>
-                <td><b>0.067</b></td>
+                <td><b>0.869</b></td>
+                <td><b>0.904</b></td>
+                <td><b>0.098</b></td>
+                <td><b>0.021</b></td>
               </tr>
             </table>
             <i>Table 3: Information source comparison</i><br><br>
 
-            We determine that providing more information improves performance. Fusion (combining internal uncertainty from hidden states with expressed confidence from logits) achieves best performance with AUROC of 0.789 and Brier score of 0.171. The multi-layer ensemble (AUROC 0.497, Brier 0.355) underperforms the single-layer baseline (AUROC 0.631, Brier 0.228), but the fusion probe significantly improves performance by detecting miscalibration between internal and expressed confidence.<br><br>
+            <b>Finding:</b> Adding more information sources consistently improves performance. The single-layer baseline (AUROC 0.829) improves to 0.862 with the multi-layer ensemble, and reaches 0.904 with fusion. Brier score drops from 0.143 → 0.121 → 0.098, indicating progressively better calibration.<br><br>
 
-            <b>Layer Analysis:</b><br><br>
+            <b>Why does multi-layer help?</b> Different layers encode complementary aspects of uncertainty. Early layers capture syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. By combining signals across layers, the ensemble aggregates these complementary views. The fusion probe further improves by incorporating output logits, which capture the model's "expressed" confidence—enabling detection of cases where internal uncertainty diverges from output confidence.<br><br>
+
+            <b>Layer Weight Analysis:</b><br><br>
 
             <img src="./images/fusionlayerweights.png" width=700px/><br><br>
 
-            The fusion probe architecture learns softmax-normalized weights over the four quartile layers. These weights reveal which layers contribute most to uncertainty prediction, providing an empirical test of the "middle layers are optimal" hypothesis.<br><br>
+            The fusion probe learns softmax-normalized weights over the four quartile layers, revealing which layers contribute most to uncertainty prediction.<br><br>
 
-            <b>Results:</b> Our learned weights confirm that middle layers dominate, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) receives the highest weight, while the final two layers (21, 75% depth) and (27, 96% depth) receive the lowest weight. <br><br>
+            <b>Results:</b> Middle layers dominate, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) receives the highest weight, confirming that semantic-level processing contains the richest uncertainty signal. Early and final layers contribute less but still provide complementary information that improves overall performance.<br><br>
 
-            <b>Interpretation:</b> Hidden states and logits can diverge (miscalibration). When the model is internally uncertain but expresses high confidence, Fusion probe detects this mismatch. The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture its internal uncertainty; when these disagree, the fusion probe can identify cases where the model appears confident but is internally uncertain. This addresses a fundamental limitation of prior probing work: by using only hidden states, probes cannot detect when the model's internal state and expressed confidence disagree.<br><br>
+            <b>Why does fusion outperform ensemble?</b> The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture internal uncertainty. When these signals diverge—the model appears confident but is internally uncertain—the fusion probe detects this miscalibration. This addresses a key limitation of hidden-state-only approaches: they cannot identify when internal and expressed confidence disagree.<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
