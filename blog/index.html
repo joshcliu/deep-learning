@@ -596,7 +596,7 @@ MathJax = {
 
             <b>Research Question:</b> Given that linear probes work best, what information should we provide as input?<br><br>
 
-            <b>Method:</b> We tested three configurations of the linear probe architecture:
+            We tested three configurations of the linear probe architecture:
             <ol>
               <li><b>Single layer</b> (layer 14 only) - baseline</li>
               <li><b>Multi-layer ensemble</b> (layers 7, 14, 21, 27) - testing layer complementarity</li>
@@ -645,7 +645,7 @@ MathJax = {
 
             <b>Finding:</b> Adding more information sources consistently improves performance. The single-layer baseline (AUROC 0.829) improves to 0.862 with the multi-layer ensemble, and reaches 0.904 with fusion. Brier score drops from 0.143 → 0.121 → 0.098, indicating progressively better calibration.<br><br>
 
-            <b>Why does multi-layer help?</b> Different layers encode complementary aspects of uncertainty. Early layers capture syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. By combining signals across layers, the ensemble aggregates these complementary views. The fusion probe further improves by incorporating output logits, which capture the model's "expressed" confidence—enabling detection of cases where internal uncertainty diverges from output confidence. Regardless, after extensive testing with different quantile sizes, we determined that four layers offered the best performance-compute tradeoff with respect to both AUROC and Brier score. <br><br>
+            Different layers encode complementary aspects of uncertainty. Early layers capture syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. By combining signals across layers, the ensemble aggregates these complementary views. The fusion probe further improves by incorporating output logits, which capture the model's "expressed" confidence—enabling detection of cases where internal uncertainty diverges from output confidence. Regardless, after extensive testing with different quantile sizes, we determined that four layers offered the best performance-compute tradeoff with respect to both AUROC and Brier score. <br><br>
 
             <b>Layer Weight Analysis:</b><br><br>
 
@@ -655,7 +655,7 @@ MathJax = {
 
             <b>Results:</b> The learned weights are approximately uniform across layers, indicating that each layer contributes comparable uncertainty signal. Layer 14 (50% depth) receives a slightly higher weight, but the difference is modest. This suggests that uncertainty information is distributed throughout the network rather than concentrated in specific layers—explaining why combining multiple layers improves performance over any single layer.<br><br>
 
-            <b>Why does fusion outperform ensemble?</b> The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture internal uncertainty. When these signals diverge—the model appears confident but is internally uncertain—the fusion probe detects this miscalibration. This addresses a key limitation of hidden-state-only approaches: they cannot identify when internal and expressed confidence disagree.<br><br>
+            The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture internal uncertainty. When these signals diverge—the model appears confident but is internally uncertain—the fusion probe detects this miscalibration. This addresses a key limitation of hidden-state-only approaches: they cannot identify when internal and expressed confidence disagree.<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
