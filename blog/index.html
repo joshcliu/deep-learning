@@ -235,7 +235,7 @@ MathJax = {
 		    <div class="main-content-block">
 					<h1>2. Background and Related Work</h1>
 
-          Existing uncertainty quantification methods for LLMs fall into three categories. <b>Token probability methods</b> use the model's softmax scores as confidence, but Jiang et al. <a href="#ref_8">[8]</a> showed these are often poorly calibrated. <b>Consistency-based methods</b> like semantic entropy <a href="#ref_9">[9]</a> generate multiple responses and measure agreement, allowing hallucination detection but requiring 5-10 forward passes per query. <b>Verbalized confidence</b> asks models to self-report uncertainty, but Xiong et al. <a href="#ref_10">[10]</a> found they tend to be systematically overconfident. These limitations motivate looking inside the model's internal representations.<br><br>
+          Existing uncertainty quantification methods for LLMs fall into three categories. Token probability methods use the model's softmax scores as confidence, but Jiang et al. <a href="#ref_8">[8]</a> showed these are often poorly calibrated. Consistency-based methods like semantic entropy <a href="#ref_9">[9]</a> generate multiple responses and measure agreement, allowing hallucination detection but requiring 5-10 forward passes per query. Verbalized confidence asks models to self-report uncertainty, but Xiong et al. <a href="#ref_10">[10]</a> found they tend to be systematically overconfident. These limitations motivate looking inside the model's internal representations.<br><br>
 
         <span class="subsection">2.1 Probing Internal Representations</span>
           <p>
@@ -271,11 +271,11 @@ MathJax = {
           </p>
 
           <p>
-          Post-hoc calibration methods attempt to fix miscalibration after training. <b>Temperature scaling</b> divides logits by a learned temperature \(T > 1\) to soften overconfident predictions, while <b>Platt scaling</b> fits a logistic regression on held-out data. However, these methods assume the model's ranking is correct and only adjust the probability scale—they cannot fix cases where the model is confidently wrong about ordering. For LLMs, calibration is particularly challenging because confidence can vary across domains, question types, and even prompt phrasings.
+          Post-hoc calibration methods attempt to fix miscalibration after training. Temperature scaling divides logits by a learned temperature \(T > 1\) to soften overconfident predictions, while Platt scaling fits a logistic regression on held-out data. However, these methods assume the model's ranking is correct and cannot fix cases where the model is confidently wrong about ordering. For LLMs, calibration is challenging because confidence can vary across domains, question types, and even prompt phrasings.
           </p>
 
           <p>
-          We train probes with <b>Brier score</b> <a href="#ref_13">[13]</a>, a proper scoring rule: \((\hat{p} - y)^2\). Unlike cross-entropy, which can be minimized by extreme confident predictions, Brier score is uniquely minimized when predictions equal true probabilities. This encourages our probes to output calibrated confidence estimates rather than just discriminating correct from incorrect.
+          We train probes with Brier score <a href="#ref_13">[13]</a>, a proper scoring rule defined as \((\hat{p} - y)^2\). Brier score is uniquely minimized when predictions equal true probabilities, and therefore encourages probes to output calibrated confidence estimates rather than just discriminating correct from incorrect.
           </p>
 
 		<span class="subsection">2.3 Research Gaps We Address</span>
@@ -289,14 +289,14 @@ MathJax = {
               Most probing work relies on linear classifiers
               <a href="#ref_6">[6]</a><a href="#ref_7">[7]</a>, so it is unclear whether uncertainty is
               linearly extractable or requires more expressive decoders.<br>
-              <i>Our contribution:</i> We design and implement four novel probe architectures (Linear, MLP, Hierarchical, Sparse) to test competing hypotheses about the geometric structure of uncertainty, then rigorously evaluate how combining information across layers and with logits improves confidence-correction correlation.
+              <i>Our contribution:</i> We design and implement four novel probe architectures (Linear, MLP, Hierarchical, Sparse) to determine the geometric structure of uncertainty, then evaluate how combining information across layers and with logits improves confidence-correction correlation.
             </li>
             <br>
             <li>
               <b>Multi-layer information and layer localization.</b><br>
               Prior work typically probes single layers <a href="#ref_7">[7]</a> or uses naive
               concatenation, leaving open both how to combine uncertainty signals across layers and
-              where uncertainty is primarily encoded (early vs. middle vs. final layers).<br>
+              where uncertainty is primarily encoded layer-wise.<br>
               <i>Our contribution:</i> We develop a novel multi-layer Ensemble Probe with learned weighted
               aggregation that automatically discovers which layers encode the most uncertainty information.
               Through systematic evaluation across multiple model architectures, we empirically demonstrate that all layers contribute comparable uncertainty signal,
