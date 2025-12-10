@@ -274,10 +274,6 @@ MathJax = {
           Post-hoc calibration methods attempt to fix miscalibration after training. <b>Temperature scaling</b> divides logits by a learned temperature \(T > 1\) to soften overconfident predictions, while <b>Platt scaling</b> fits a logistic regression on held-out data. However, these methods assume the model's ranking is correct and only adjust the probability scale; they cannot fix cases where the model is confidently wrong about ordering. For LLMs, calibration is particularly challenging because confidence can vary across domains, question types, and even prompt phrasings.
           </p>
 
-          <p>
-          We train probes with <b>Brier score</b> <a href="#ref_13">[13]</a>, a proper scoring rule: \((\hat{p} - y)^2\). Unlike cross-entropy, which can be minimized by extreme confident predictions, Brier score is uniquely minimized when predictions equal true probabilities. This encourages our probes to output calibrated confidence estimates rather than just discriminating correct from incorrect.
-          </p>
-
 		<span class="subsection">2.3 Research Gaps We Address</span>
           <p>
           Despite substantial progress, key questions remain about how LLMs represent and express uncertainty. We address these gaps through systematic experimentation and a novel fusion architecture.
@@ -565,9 +561,9 @@ MathJax = {
                 <td>460K</td>
               </tr>
             </table>
-            <i>Table 2: Architecture comparison on layer 14. Values are mean ± std across 10-fold CV. Linear probe matches or exceeds complex alternatives despite 200× fewer parameters.</i><br><br>
+            <i>Table 2: Architecture comparison on layer 14. Values are mean ± std across 10-fold CV. Linear probe achieves statistically equivalent performance to complex alternatives despite 80-230× fewer parameters.</i><br><br>
 
-            <b>Finding:</b> <b>Linear probe wins</b> despite being 200× smaller than complex alternatives. The linear probe achieves AUROC of 0.829 and Brier score of 0.143, outperforming the MLP probe (AUROC 0.702, Brier 0.243) and matching or exceeding more complex architectures like Hierarchical (AUROC 0.818, Brier 0.143) and Sparse (AUROC 0.833, Brier 0.142).<br><br>
+            <b>Finding:</b> The <b>linear probe matches complex alternatives</b> despite being 80-230× smaller. The linear probe achieves AUROC of 0.829 and Brier score of 0.143, significantly outperforming the MLP probe (AUROC 0.702, Brier 0.243) while achieving statistically equivalent performance to Hierarchical (AUROC 0.818, Brier 0.143) and Sparse (AUROC 0.833, Brier 0.142).<br><br>
 
             <b>Statistical Significance:</b> We performed paired t-tests across the 10 folds to assess whether performance differences are statistically significant. The Linear probe significantly outperforms the MLP probe on all metrics (AUROC: \(t(9) = 5.23, p < 0.001\); Brier: \(t(9) = 5.87, p < 0.001\)). Differences between Linear, Hierarchical, and Sparse probes are not statistically significant (\(p > 0.05\)), suggesting that once capacity is sufficient to find the uncertainty direction, additional complexity provides no benefit.<br><br>
 
@@ -653,7 +649,7 @@ MathJax = {
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
-            <b>Exp 1 takeaway:</b> Linear probes achieve best calibration (ECE 0.033) despite 200× fewer parameters than MLP.<br><br>
+            <b>Exp 1 takeaway:</b> Linear probes achieve best calibration (ECE 0.033) despite 230× fewer parameters than MLP.<br><br>
             <b>Exp 2 takeaway:</b> Fusion Probe achieves 19% better Brier (0.098 vs 0.121) than hidden-states-only, statistically significant at p < 0.01.<br><br>
             <b>Efficiency:</b> Single forward pass vs. 5-10× for semantic entropy methods.
 		    </div>
@@ -668,7 +664,7 @@ MathJax = {
 
             <span class="subsection">5.1 Linear vs. Non-linear</span><br><br>
 
-            The Linear Probe substantially outperforms the MLP Probe (Brier 0.166 vs 0.266, ECE 0.074 vs 0.224), with higher-capacity models achieving worse calibration. The finding supports the linear representation hypothesis <a href="#ref_14">[14]</a>: uncertainty is encoded as a geometric direction in hidden space, not in complex non-linear relationships. The MLP Probe overfits to spurious correlations, while the capacity-limited Linear Probe finds a robust uncertainty direction.<br><br>
+            The Linear Probe substantially outperforms the MLP Probe (Brier 0.143 vs 0.243, ECE 0.033 vs 0.223), with higher-capacity models achieving worse calibration. The finding supports the linear representation hypothesis <a href="#ref_14">[14]</a>: uncertainty is encoded as a geometric direction in hidden space, not in complex non-linear relationships. The MLP Probe overfits to spurious correlations, while the capacity-limited Linear Probe finds a robust uncertainty direction.<br><br>
 
             This has three implications: (1) uncertainty is explicitly represented geometrically, making it accessible to the model's own linear readout mechanism for interpretability and steering, (2) simple probes are preferable, not just sufficient, and (3) Brier loss successfully prevents the overconfident predictions that higher capacity enables.<br><br>
 
@@ -727,7 +723,7 @@ MathJax = {
 
             <ol>
               <li><b>Internal and expressed confidence can diverge, and detecting this improves calibration.</b> Our Fusion Probe, which combines hidden states with output logits, achieves 19% better Brier score than hidden-state-only approaches (0.098 vs 0.121, \(p < 0.01\)). Models sometimes "know" they are uncertain internally while expressing confidence externally, and fusing both signals reveals this miscalibration.</li><br>
-              <li><b>Uncertainty is linearly encoded and distributed across layers.</b> Linear probes match or outperform complex architectures (MLP, Hierarchical, Sparse) despite 200× fewer parameters, and learned layer weights are near-uniform, indicating uncertainty signal is distributed rather than localized.</li><br>
+              <li><b>Uncertainty is linearly encoded and distributed across layers.</b> Linear probes achieve statistically equivalent performance to complex architectures (Hierarchical, Sparse) despite 80-230× fewer parameters, while the higher-capacity MLP significantly underperforms. Learned layer weights are near-uniform, indicating uncertainty signal is distributed rather than localized.</li><br>
               <li><b>Lightweight probes achieve strong calibration.</b> Our best probe achieves AUROC 0.904 and ECE 0.021 in a single forward pass, competitive with multi-sample methods like semantic entropy but 5-10× more efficient.</li>
             </ol><br>
 
