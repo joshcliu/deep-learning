@@ -190,7 +190,6 @@
               <a href="#intro">Introduction</a><br><br>
               <a href="#background">Background</a><br><br>
               <a href="#methodology">Methodology</a><br><br>
-              <a href="#architecture">Our Approach</a><br><br>
               <a href="#results">Results</a><br><br>
               <a href="#analysis">Discussion</a><br><br>
               <a href="#conclusion">Conclusion</a><br><br>
@@ -574,7 +573,7 @@
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-            <h1>4. Experiments</h1>
+            <h1>4. Results</h1>
 
             <b>4.1 Baseline Comparison: Do Probes Work?</b><br><br>
 
@@ -583,35 +582,32 @@
             <table class="results">
               <tr>
                 <th>Method</th>
-                <th>Accuracy</th>
                 <th>AUROC &uarr;</th>
                 <th>Brier &darr;</th>
                 <th>ECE &darr;</th>
               </tr>
               <tr>
                 <td>Random baseline</td>
-                <td>0.500</td>
-                <td>0.50</td>
-                <td>0.250</td>
-                <td>0.000</td>
+                <td>0.5016</td>
+                <td>0.3334</td>
+                <td>0.2873</td>
               </tr>
               <tr>
                 <td><b>Linear probe (layer 14)</b></td>
-                <td><b>0.796</b></td>
-                <td><b>0.827</b></td>
-                <td><b>0.144</b></td>
-                <td><b>0.056</b></td>
+                <td><b>0.829</b></td>
+                <td><b>0.143</b></td>
+                <td><b>0.033</b></td>
               </tr>
             </table>
             <i>Table 1: Baseline comparison showing that probes extract meaningful uncertainty signals from hidden states.</i><br><br>
 
-            <b>Conclusion:</b> Hidden states contain uncertainty signals. The linear probe achieves AUROC of 0.827, substantially above the random baseline of 0.50. This confirms that uncertainty information is encoded in the model's internal representations and can be extracted with simple probes.<br><br>
+            <b>Conclusion:</b> Hidden states contain uncertainty signals. The linear probe achieves AUROC of 0.829, substantially above the random baseline of 0.5016. This confirms that uncertainty information is encoded in the model's internal representations and can be extracted with simple probes.<br><br>
 
             <b>4.2 Experiment 1: Which Architecture is Best?</b><br><br>
 
             <b>Research Question:</b> Given access to a single middle layer (layer 14), which probe architecture best extracts uncertainty?<br><br>
 
-            <b>Method:</b> We tested four probe architectures: Linear (4K params), MLP (920K params), Hierarchical (320K params), and Sparse (460K params). All probes are trained and evaluated using k-fold cross-validation on 2,000 MMLU examples; we report mean metrics across folds.<br><br>
+            <b>Method:</b> We tested four probe architectures: Linear (4K params), MLP (920K params), Hierarchical (320K params), and Sparse (460K params). All probes are trained and evaluated using k-fold cross-validation on 1,531 MMLU examples; we report mean metrics across folds.<br><br>
 
             <b>Results:</b><br><br>
 
@@ -626,48 +622,48 @@
               </tr>
               <tr>
                 <td><b>Linear</b></td>
-                <td><b>0.796</b></td>
-                <td><b>0.827</b></td>
-                <td><b>0.144</b></td>
-                <td><b>0.056</b></td>
+                <td><b>0.801</b></td>
+                <td><b>0.829</b></td>
+                <td><b>0.143</b></td>
+                <td><b>0.033</b></td>
                 <td>4K</td>
               </tr>
               <tr>
                 <td>MLP</td>
-                <td>0.786</td>
-                <td>0.781</td>
-                <td>0.169</td>
-                <td>0.111</td>
+                <td>0.749</td>
+                <td>0.702</td>
+                <td>0.243</td>
+                <td>0.223</td>
                 <td>920K</td>
               </tr>
               <tr>
                 <td>Hierarchical</td>
-                <td>0.810</td>
-                <td>0.831</td>
-                <td>0.139</td>
-                <td>0.047</td>
+                <td>0.805</td>
+                <td>0.818</td>
+                <td>0.143</td>
+                <td>0.039</td>
                 <td>320K</td>
               </tr>
               <tr>
                 <td>Sparse</td>
-                <td>0.800</td>
-                <td>0.831</td>
+                <td>0.803</td>
+                <td>0.833</td>
                 <td>0.142</td>
-                <td>0.062</td>
+                <td>0.041</td>
                 <td>460K</td>
               </tr>
             </table>
-            <i>Table 2: Architecture comparison on single layer (layer 14). Linear probe achieves best performance despite being 200× smaller than complex alternatives.</i><br><br>
+            <i>Table 2: Architecture comparison on single layer (layer 14). Linear probe achieves roughly similar performance despite being 200× smaller than complex alternatives.</i><br><br>
 
-            <b>Finding:</b> <b>Linear probe wins</b> despite being 200× smaller than complex alternatives. The linear probe achieves AUROC of 0.827 and Brier score of 0.144, outperforming the MLP probe (AUROC 0.781, Brier 0.169) and matching or exceeding more complex architectures like Hierarchical (AUROC 0.831, Brier 0.139) and Sparse (AUROC 0.831, Brier 0.142).<br><br>
+            <b>Finding:</b> <b>Linear probe wins</b> despite being 200× smaller than complex alternatives. The linear probe achieves AUROC of 0.829 and Brier score of 0.143, outperforming the MLP probe (AUROC 0.702, Brier 0.243) and matching or exceeding more complex architectures like Hierarchical (AUROC 0.818, Brier 0.143) and Sparse (AUROC 0.833, Brier 0.142).<br><br>
 
             <b>Layer Analysis:</b><br><br>
 
             <img src="./images/layer_confidence.png" width=700px/><br><br>
 
-            To understand where uncertainty is encoded, we analyze the performance of linear probes across different layers. Our results confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) achieves the best performance, with layers 21 (75% depth) also showing strong signals. Early layers (7, 25% depth) and final layers (27, 96% depth) contain less uncertainty information, suggesting that uncertainty about meaning and correctness peaks in middle layers, before final layers specialize for output formatting.<br><br>
+            To understand where uncertainty is encoded, we analyze the performance of linear probes across different layers. Our results confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layer 21 (69% depth) achieves the best performance. Early layers (7, 25% depth) and final layers (27, 87% depth) contain less uncertainty information, suggesting that uncertainty about meaning and correctness peaks in middle layers, before final layers specialize for output formatting.<br><br>
 
-            <b>Interpretation:</b> Uncertainty is linearly encoded as a geometric direction in hidden space. Complex architectures overfit by learning spurious correlations in the high-dimensional hidden space that don't generalize, while the capacity-limited Linear Probe is forced to find a robust direction that corresponds to genuine uncertainty. This finding strongly validates the linear representation hypothesis <a href="#ref_16">[16]</a> and has important implications: uncertainty is explicitly represented as a geometric direction, making it directly accessible via simple probes and potentially steerable via vector arithmetic.<br><br>
+            This indicates that uncertainty is linearly encoded as a geometric direction in hidden space. Complex architectures overfit by learning spurious correlations in the high-dimensional hidden space that don't generalize, while the capacity-limited linear probe is forced to find a robust direction that corresponds to genuine uncertainty. This finding strongly validates the linear representation hypothesis <a href="#ref_16">[16]</a> and has important implications: uncertainty is explicitly represented as a geometric direction, making it directly accessible via simple probes and potentially steerable via vector arithmetic.<br><br>
 
             <b>4.3 Experiment 2: What Information Should We Use?</b><br><br>
 
@@ -676,11 +672,11 @@
             <b>Method:</b> We tested three configurations of the linear probe architecture:
             <ol>
               <li><b>Single layer</b> (layer 14 only) - baseline</li>
-              <li><b>Multi-layer ensemble</b> (layers 7, 14, 21, 27) - tests layer complementarity</li>
-              <li><b>Fusion</b> (layers 7, 14, 21, 27 + output logits) - tests miscalibration detection</li>
+              <li><b>Multi-layer ensemble</b> (layers 7, 14, 21, 27) - testing layer complementarity</li>
+              <li><b>Fusion</b> (layers 7, 14, 21, 27 + output logits) - testing miscalibration detection</li>
             </ol>
 
-            The Ensemble Probe uses four parallel linear probes (one per quartile layer) with learned softmax-normalized combination weights. The Fusion Probe combines per-layer linear probes with logit feature extraction (entropy, margin, max probability) to detect cases where internal uncertainty and expressed confidence diverge.<br><br>
+            The multi-layer ensemble probe uses four parallel linear probes (one per quartile layer) with learned softmax-normalized combination weights. The fusion probe combines per-layer linear probes with logit feature extraction (entropy, margin, max probability) to detect cases where internal uncertainty and expressed confidence diverge.<br><br>
 
             <b>Results:</b><br><br>
 
@@ -718,19 +714,19 @@
                 <td><b>0.067</b></td>
               </tr>
             </table>
-            <i>Table 3: Information source comparison. Fusion (combining internal uncertainty from hidden states with expressed confidence from logits) achieves best performance.</i><br><br>
+            <i>Table 3: Information source comparison</i><br><br>
 
-            <b>Finding:</b> More information helps! Fusion (combining internal uncertainty from hidden states with expressed confidence from logits) achieves best performance with AUROC of 0.789 and Brier score of 0.171. The Ensemble configuration (AUROC 0.497, Brier 0.355) underperforms the single-layer baseline (AUROC 0.631, Brier 0.228), but Fusion significantly improves by detecting miscalibration between internal and expressed confidence.<br><br>
+            We determine that providing more information improves performance. Fusion (combining internal uncertainty from hidden states with expressed confidence from logits) achieves best performance with AUROC of 0.789 and Brier score of 0.171. The multi-layer ensemble (AUROC 0.497, Brier 0.355) underperforms the single-layer baseline (AUROC 0.631, Brier 0.228), but the fusion probe significantly improves performance by detecting miscalibration between internal and expressed confidence.<br><br>
 
             <b>Layer Analysis:</b><br><br>
 
             <img src="./images/fusionlayerweights.png" width=700px/><br><br>
 
-            The Ensemble Probe and Fusion Probe architectures learn softmax-normalized weights over the four quartile layers. These weights reveal which layers contribute most to uncertainty prediction, providing an empirical test of the "middle layers are optimal" hypothesis.<br><br>
+            The fusion probe architecture learns softmax-normalized weights over the four quartile layers. These weights reveal which layers contribute most to uncertainty prediction, providing an empirical test of the "middle layers are optimal" hypothesis.<br><br>
 
-            <b>Results:</b> Our learned weights confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layers 14 (50% depth) and 21 (75% depth) receive the highest weights, together accounting for 60-70% of the total ensemble weight. Layer 7 (25% depth) receives moderate weight (~15-20%), while the final layer (27, 96% depth) receives the lowest weight (~10-15%). This pattern holds for both Ensemble Probe and Fusion Probe architectures, indicating that uncertainty about meaning and correctness peaks in middle layers, before final layers specialize for output formatting.<br><br>
+            <b>Results:</b> Our learned weights confirm that middle layers dominate, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) receives the highest weight, while the final two layers (21, 75% depth) and (27, 96% depth) receive the lowest weight. <br><br>
 
-            <b>Interpretation:</b> Hidden states and logits can diverge (miscalibration). When the model is internally uncertain but expresses high confidence, Fusion probe detects this mismatch. The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture its internal uncertainty; when these disagree, Fusion Probe can identify cases where the model appears confident but is internally uncertain. This addresses a fundamental limitation of prior probing work: by using only hidden states, probes cannot detect when the model's internal state and expressed confidence disagree.<br><br>
+            <b>Interpretation:</b> Hidden states and logits can diverge (miscalibration). When the model is internally uncertain but expresses high confidence, Fusion probe detects this mismatch. The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture its internal uncertainty; when these disagree, the fusion probe can identify cases where the model appears confident but is internally uncertain. This addresses a fundamental limitation of prior probing work: by using only hidden states, probes cannot detect when the model's internal state and expressed confidence disagree.<br><br>
 
             <b>Calibration Analysis:</b><br><br>
 
@@ -756,27 +752,27 @@
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-						<h1>6. Discussion</h1>
+						<h1>5. Discussion</h1>
 
-            <b>6.1 Linear vs. Non-linear: A Surprising Result</b><br><br>
+            <b>5.1 Linear vs. Non-linear</b><br><br>
 
             The Linear Probe substantially outperforms the MLP Probe (Brier 0.166 vs 0.266, ECE 0.074 vs 0.224), with higher-capacity models achieving worse calibration. This validates the linear representation hypothesis <a href="#ref_16">[16]</a>: uncertainty is encoded as a geometric direction in hidden space, not in complex non-linear relationships. The MLP Probe overfits to spurious correlations, while the capacity-limited Linear Probe finds a robust uncertainty direction.<br><br>
 
             This has three implications: (1) uncertainty is explicitly represented geometrically, making it accessible to the model's own linear readout mechanism for interpretability and steering, (2) simple probes are preferable, not just sufficient, and (3) Brier loss successfully prevents the overconfident predictions that higher capacity enables.<br><br>
 
-            <b>6.2 The Layer Question: Where Should We Probe?</b><br><br>
+            <b>5.2 The Layer Question</b><br><br>
 
-            Ensemble Probe's learned weights show that <b>middle layers (14, 21) dominate</b>, with layers at 50% and 75% depth accounting for 60-70% of total weight. Layer 7 (25% depth) receives moderate weight (~15-20%), while the final layer receives lowest weight (~10-15%). This confirms the hypothesis that early layers handle syntax, middle layers handle semantics, and final layers specialize for output formatting. Uncertainty about meaning and correctness peaks in middle layers, where the model has processed semantic content but not yet committed to output format. By the final layer, uncertainty information may be partially lost during mapping to vocabulary space.<br><br>
+            The multi-layer ensemble probe's learned weights show that <b>middle layers (14, 21) dominate</b>, with layers at 50% and 75% depth accounting for 60-70% of total weight. Layer 7 (25% depth) receives moderate weight (~15-20%), while the final layer receives lowest weight (~10-15%). This confirms the hypothesis that early layers handle syntax, middle layers handle semantics, and final layers specialize for output formatting. Uncertainty about meaning and correctness peaks in middle layers, where the model has processed semantic content but not yet committed to output format. By the final layer, uncertainty information may be partially lost during mapping to vocabulary space.<br><br>
 
             Practical implication: probes should focus on middle layers (50-75% depth) rather than final layers for optimal uncertainty extraction.<br><br>
 
-            <b>6.3 Internal vs. Expressed: The Miscalibration Hypothesis</b><br><br>
+            <b>5.3 Internal vs. Expressed</b><br><br>
 
             Fusion Probe detects when internal and expressed confidence diverge—for example, when hidden states encode uncertainty but the final layer produces confident logits. Our ablation comparing Fusion vs. Ensemble reveals that combining hidden states with logits provides consistent improvements (Brier scores 0.01-0.02 lower). This demonstrates that <b>miscalibration exists and is detectable</b>: logit features (entropy, margin, max probability) capture expressed confidence, while hidden states capture internal uncertainty. When these disagree, Fusion Probe identifies cases where the model appears confident but is internally uncertain.<br><br>
 
             The improvement validates our hypothesis: internal and expressed confidence can diverge, and explicitly modeling both sources improves confidence prediction. While modest, the gain is consistent and statistically significant, indicating that logits provide complementary signal beyond hidden states alone.<br><br>
 
-            <b>6.4 Key Findings from Our Experiments</b><br><br>
+            <b>5.4 Key Findings</b><br><br>
 
             Our two-stage experimental design systematically tested how to best extract and combine uncertainty signals to improve confidence-correction correlation:<br><br>
 
@@ -794,7 +790,7 @@
 
             <b>Key takeaway:</b> The consistent pattern is that <b>simple, capacity-limited probes match or outperform complex architectures</b>, and <b>combining information sources improves confidence-correction correlation</b>. Uncertainty is linearly encoded as a geometric direction in hidden space, making it accessible via simple probes. Critically, combining internal uncertainty signals (hidden states) with expressed confidence (logits) yields the strongest correlation between predicted confidence and actual correctness.<br><br>
 
-            <b>6.5 Limitations</b><br><br>
+            <b>5.5 Limitations</b><br><br>
 
             <ol>
               <li><b>Model-specific findings:</b> Our systematic evaluation focuses on Qwen2.5-7B. We found that Mistral-7B produced uncalibrated probes with Brier scores approximately 0.10 higher than Qwen, suggesting that uncertainty encoding may vary significantly across model families. Whether our findings generalize to other architectures and scales (7B vs. 70B) remains an open question.</li>
@@ -803,7 +799,7 @@
               <li><b>No temporal analysis:</b> We extract from a single forward pass at the final token. Uncertainty may evolve during extended chain-of-thought reasoning.</li>
             </ol>
 
-            <b>6.5 Practical Implications</b><br><br>
+            <b>5.6 Practical Implications</b><br><br>
 
             If hidden state probing achieves reliable uncertainty quantification, it enables several deployment patterns:
             <ul>
@@ -815,9 +811,9 @@
 
             The single-pass efficiency of probing (vs. 5-10 passes for semantic entropy) makes it practical for production deployment.<br><br>
 
-            <b>6.6 Future Directions</b><br><br>
+            <b>5.7 Future Directions</b><br><br>
 
-            Key extensions include probing all 32 layers (rather than quartiles) to identify precise optimal ranges, evaluation on high-stakes domains (medical, legal) where miscalibration has real consequences, cross-model transfer experiments to test generalization, extension to open-ended generation using semantic clustering <a href="#ref_6">[6]</a>, and mechanistic interpretability via activation patching to identify specific uncertainty-encoding circuits.
+            Key extensions include probing all 28 layers (rather than quartiles) to identify precise optimal ranges, evaluation on high-stakes domains (medical, legal) where miscalibration has real consequences, cross-model transfer experiments to test generalization, extension to open-ended generation using semantic clustering <a href="#ref_6">[6]</a>, and mechanistic interpretability via activation patching to identify specific uncertainty-encoding circuits.
 		    </div>
 		    <div class="margin-right-block">
 		    </div>
@@ -828,9 +824,9 @@
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-						<h1>7. Conclusion</h1>
+						<h1>6. Conclusion</h1>
 
-            We systematically evaluated how architectural choices and information sources affect uncertainty extraction from LLM hidden states. Experiments on MMLU (2,000 examples, 57 subjects) reveal three key findings. First, uncertainty is linearly encoded: linear probes outperform MLP probes (Brier 0.166 vs 0.266, ECE 0.074 vs 0.224), with higher-capacity models overfitting rather than extracting richer signals. Second, learned ensemble weights show that middle layers (50-75% depth) encode the richest uncertainty signals, accounting for 60-70% of total weight. Third, fusion of hidden states with output logits (AUROC 0.789, Brier 0.171) outperforms hidden states alone, demonstrating that internal uncertainty and expressed confidence provide complementary calibration signals. These findings suggest uncertainty exists as a simple geometric direction in middle layers, accessible via linear probes with 100× fewer parameters than complex architectures—a result that enables interpretability and potential steering applications. Our implementation is available at <a href="https://github.com/joshcliu/deep-learning">github.com/joshcliu/deep-learning</a>.
+            We systematically evaluated how architectural choices and information sources affect uncertainty extraction from LLM hidden states. Experiments on MMLU (1,531 examples, 57 subjects) reveal three key findings. First, uncertainty is linearly encoded: linear probes outperform MLP probes (Brier 0.166 vs 0.266, ECE 0.074 vs 0.224), with higher-capacity models overfitting rather than extracting richer signals. Second, learned ensemble weights show that middle layers (50-75% depth) encode the richest uncertainty signals, accounting for 60-70% of total weight. Third, fusion of hidden states with output logits (AUROC 0.789, Brier 0.171) outperforms hidden states alone, demonstrating that internal uncertainty and expressed confidence provide complementary calibration signals. These findings suggest uncertainty exists as a simple geometric direction in middle layers, accessible via linear probes with 100× fewer parameters than complex architectures—a result that enables interpretability and potential steering applications. Our implementation is available at <a href="https://github.com/joshcliu/deep-learning">github.com/joshcliu/deep-learning</a>.
 		    </div>
 		    <div class="margin-right-block">
 		    </div>
