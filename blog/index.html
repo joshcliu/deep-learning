@@ -693,48 +693,32 @@ MathJax = {
 
             The improvement validates our hypothesis: internal and expressed confidence can diverge, and explicitly modeling both sources improves confidence prediction. The consistent gains indicate that logits provide complementary signal beyond hidden states alone—information about the model's "expressed" confidence that hidden states do not fully capture.<br><br>
 
-            <span class="subsection">5.4 Key Findings</span><br><br>
-
-            Our two-stage experimental design systematically tested how to best extract and combine uncertainty signals to improve confidence-correction correlation:<br><br>
-
-            <b>From Experiment 1 (Architecture Comparison):</b>
-            <ul>
-              <li><b>Linear probe outperforms MLP:</b> Despite being 200× smaller, the Linear probe achieves better calibration (ECE 0.033 vs 0.223), demonstrating that uncertainty is linearly encoded as a geometric direction in hidden space.</li>
-              <li><b>Complex architectures show diminishing returns:</b> Hierarchical (320K params) and Sparse (460K params) probes achieve similar performance to Linear but with 100× more parameters, suggesting that the hierarchical and sparsity inductive biases don't match the structure of uncertainty encoding.</li>
-            </ul><br>
-
-            <b>From Experiment 2 (Information Sources):</b>
-            <ul>
-              <li><b>Multi-layer information helps:</b> Combining information across layers (Ensemble) consistently improves performance (AUROC 0.829 → 0.862), as each layer contributes complementary uncertainty signal.</li>
-              <li><b>Fusion achieves best performance:</b> Combining hidden states with logits (Fusion) achieves the best confidence-correction correlation (AUROC 0.904, Brier 0.098), demonstrating that internal uncertainty and expressed confidence provide complementary signals.</li>
-            </ul><br>
-
-            <b>Key takeaway:</b> The consistent pattern is that <b>simple, capacity-limited probes match or outperform complex architectures</b>, and <b>combining information sources improves confidence-correction correlation</b>. Uncertainty is linearly encoded as a geometric direction in hidden space, making it accessible via simple probes. Critically, combining internal uncertainty signals (hidden states) with expressed confidence (logits) yields the strongest correlation between predicted confidence and actual correctness.<br><br>
-
-            <span class="subsection">5.5 Limitations</span><br><br>
+            <span class="subsection">5.4 Limitations</span><br><br>
 
             <ol>
-              <li><b>Model-specific findings:</b> Our systematic evaluation focuses on Qwen2.5-7B. We found that Llama-3.1-8B produced less calibrated probes with Brier scores approximately 0.10 higher than Qwen, suggesting that uncertainty encoding may vary significantly across model families. Whether our findings generalize to other architectures and scales (7B vs. 70B) remains an open question.</li>
-              <li><b>Multiple-choice format:</b> MMLU uses a constrained 4-choice format. Open-ended generation may exhibit different uncertainty patterns, where semantic entropy <a href="#ref_9">[9]</a> approaches become more relevant.</li>
-              <li><b>Single dataset:</b> While MMLU spans 57 diverse subjects, evaluating on additional benchmarks (TriviaQA, GSM8K) would test whether findings generalize across different task types (open-domain QA, mathematical reasoning).</li>
-              <li><b>No temporal analysis:</b> We extract from a single forward pass at the final token. Uncertainty may evolve during extended chain-of-thought reasoning.</li>
-            </ol>
+              <li><b>Model-specific findings.</b> Our evaluation focuses on Qwen2.5-7B, and we observed that Llama-3.1-8B produced less calibrated probes (Brier scores ~0.10 higher). Uncertainty encoding may vary across model families and scales. <i>Mitigation:</i> Future work could develop model-agnostic probes by training on hidden states from multiple models, or use transfer learning to adapt probes across architectures.</li>
+              <li><b>Multiple-choice format.</b> MMLU's constrained 4-choice format may not reflect uncertainty patterns in open-ended generation. <i>Mitigation:</i> Combining probing with semantic entropy <a href="#ref_6">[6]</a>—using probes for efficient screening, then semantic clustering for high-uncertainty cases.</li>
+              <li><b>Single task type.</b> While MMLU spans 57 subjects, all questions are factual recall. Mathematical reasoning or open-domain QA may exhibit different uncertainty structures. <i>Mitigation:</i> Multi-task probe training across diverse benchmarks.</li>
+              <li><b>Static extraction.</b> We extract from a single forward pass at the final token. Uncertainty may evolve during chain-of-thought reasoning. <i>Mitigation:</i> Temporal probing—tracking hidden state evolution across reasoning steps.</li>
+            </ol><br>
 
-            <span class="subsection">5.6 Practical Implications</span><br><br>
+            <span class="subsection">5.5 Practical Implications</span><br><br>
 
-            If hidden state probing achieves reliable uncertainty quantification, it enables several deployment patterns:
-            <ul>
-              <li><b>Selective prediction:</b> Abstain when probe confidence falls below threshold. This is particularly valuable in high-stakes domains (medical, legal) where uncertain answers are worse than no answer.</li>
-              <li><b>Retrieval augmentation:</b> Trigger RAG when internal uncertainty is high. The model "knows it doesn't know" and requests external information.</li>
-              <li><b>Human escalation:</b> Route uncertain queries to human experts for review.</li>
-              <li><b>Confidence calibration:</b> Post-process outputs to provide users with accurate uncertainty estimates.</li>
-            </ul>
+            Reliable uncertainty quantification enables several deployment patterns:<br><br>
 
-            The single-pass efficiency of probing (vs. 5-10 passes for semantic entropy) makes it practical for production deployment.<br><br>
+            <ol>
+              <li><b>Selective prediction.</b> Set a confidence threshold below which the model abstains. In high-stakes domains (medical, legal, financial), an uncertain "I don't know" is safer than a confident wrong answer. Our probe's ECE of 0.021 enables precise thresholds.</li>
+              <li><b>Uncertainty-triggered retrieval.</b> Integrate probes with RAG: when uncertainty exceeds a threshold, retrieve relevant documents before responding. The system "knows what it doesn't know" and seeks external information only when needed.</li>
+              <li><b>Tiered human escalation.</b> Route queries by confidence: high-confidence responses go directly to users, low-confidence queries escalate to human experts. This focuses expert attention where it matters most.</li>
+              <li><b>User-facing confidence scores.</b> Display calibrated confidence alongside outputs, enabling users to decide when to trust or verify responses. Well-calibrated scores (ECE < 0.03) provide meaningful probability estimates.</li>
+              <li><b>Training signal for RLHF.</b> Use probe-detected uncertainty as a reward signal: penalize high confidence on incorrect answers and reward appropriate uncertainty expression.</li>
+            </ol><br>
 
-            <span class="subsection">5.7 Future Directions</span><br><br>
+            The single-pass efficiency of probing (vs. 5-10 passes for semantic entropy) makes these patterns practical for production deployment at scale.<br><br>
 
-            Key extensions include probing all 28 layers (rather than quartiles) to identify precise optimal ranges, evaluation on high-stakes domains (medical, legal) where miscalibration has real consequences, cross-model transfer experiments to test generalization, extension to open-ended generation using semantic clustering <a href="#ref_9">[9]</a>, and mechanistic interpretability via activation patching to identify specific uncertainty-encoding circuits.
+            <span class="subsection">5.6 Future Directions</span><br><br>
+
+            Several extensions could build on this work. <b>Fine-grained layer analysis</b> (probing all 28 layers) would reveal how uncertainty representation evolves through the network. <b>Uncertainty steering</b> via activation engineering could enable controlled calibration by adding or subtracting the learned "uncertainty vector." <b>Cross-model transfer</b> experiments would test whether uncertainty encoding is universal or model-specific. <b>Uncertainty-aware decoding</b> could adapt sampling temperature based on probe outputs—exploring alternatives when uncertain, committing when confident. Finally, extending probes to <b>vision-language models</b> and <b>chain-of-thought reasoning</b> would address hallucination detection and temporal uncertainty dynamics in more complex generation settings.
 		    </div>
 		    <div class="margin-right-block">
 		    </div>
@@ -747,7 +731,17 @@ MathJax = {
 		    <div class="main-content-block">
 						<h1>6. Conclusion</h1>
 
-            We systematically evaluated how architectural choices and information sources affect uncertainty extraction from LLM hidden states. Experiments on MMLU and MMLU-Pro (~10,000 examples across 57+ subjects) reveal three key findings. First, uncertainty is linearly encoded: linear probes outperform MLP probes (Brier 0.143 vs 0.243, ECE 0.033 vs 0.223), with higher-capacity models overfitting rather than extracting richer signals. Second, learned ensemble weights are approximately uniform across layers, indicating that uncertainty signal is distributed throughout the network rather than concentrated in specific layers—explaining why multi-layer approaches outperform single-layer probes. Third, fusion of hidden states with output logits (AUROC 0.904, Brier 0.098) substantially outperforms hidden states alone, demonstrating that internal uncertainty and expressed confidence provide complementary calibration signals. These findings suggest uncertainty exists as a simple geometric direction accessible via linear probes with 100× fewer parameters than complex architectures, and that aggregating signals across layers and modalities yields the best performance. Our implementation is available at <a href="https://github.com/joshcliu/deep-learning">github.com/joshcliu/deep-learning</a>.
+            We set out to test whether a model's internal representation of uncertainty diverges from its expressed confidence, and whether probing can extract reliable calibration signals. Our experiments on ~10,000 MMLU examples answer the three research questions posed in the introduction:<br><br>
+
+            <ol>
+              <li><b>Is uncertainty linearly encoded?</b> Yes, when information is limited. With a single layer, linear probes (Brier 0.143) outperform MLPs (Brier 0.243) by avoiding overfitting. However, when multiple layers are available, architectures that aggregate information achieve better performance.</li>
+              <li><b>Which layers encode uncertainty?</b> All layers contribute comparably. Learned ensemble weights are approximately uniform, indicating uncertainty is distributed throughout the network rather than concentrated in middle layers. This explains why multi-layer approaches (AUROC 0.862) outperform single-layer probes (AUROC 0.829).</li>
+              <li><b>Does combining hidden states with logits help?</b> Yes, substantially. The fusion probe (AUROC 0.904, Brier 0.098, ECE 0.021) outperforms hidden-states-only approaches by detecting cases where internal uncertainty and expressed confidence diverge.</li>
+            </ol><br>
+
+            These findings validate our central hypothesis: models do "know what they don't know," and this knowledge can be extracted via lightweight probes. The practical implication is a <b>compute-performance tradeoff</b>: single-layer linear probes offer efficient baseline uncertainty quantification, while multi-layer fusion probes achieve superior calibration for high-stakes applications. Both approaches enable selective prediction, uncertainty-triggered retrieval, and human escalation—making LLMs safer for real-world deployment.<br><br>
+
+            Our implementation is available on <a href="https://github.com/joshcliu/deep-learning">Github</a>.
 		    </div>
 		    <div class="margin-right-block">
 		    </div>
