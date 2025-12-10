@@ -478,22 +478,22 @@ MathJax = {
 
             <span class="subsection">4.1 Experimental Setup</span><br><br>
 
-            <b>Model:</b> We use <b>Qwen2.5-7B</b> with 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. We selected Qwen after preliminary tests showed probes trained on Mistral-7B produced ~0.10 higher Brier scores, indicating worse calibration.<br><br>
+            <b>Model:</b> We use <b>Qwen2.5-7B</b> with 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. We selected Qwen after preliminary tests showed probes trained on Llama-3.1-8B produced ~0.10 higher Brier scores, indicating worse calibration.<br><br>
 
-            <b>Hidden State Extraction:</b> We extract from quartile layer positions [7, 14, 21, 27], capturing early (syntactic), middle (semantic), and late (task-specific) processing stages. We use the <b>last token</b> hidden state, which aggregates context via attention and represents the model's "decision point."<br><br>
+            <b>Hidden State Extraction:</b> We extract hidden states at \(k\) evenly-spaced quantile layer positions. After preliminary testing with \(k \in \{2, 4, 6, 8\}\), we selected \(k = 4\), yielding layers [7, 14, 21, 27] for Qwen2.5-7B's 28-layer architecture. These positions capture early (syntactic), middle (semantic), and late (task-specific) processing stages. We use the <b>last token</b> hidden state, which aggregates context via attention and represents the model's "decision point."<br><br>
 
-            <b>Labels:</b> We use <b>logit-based prediction</b>: examining logits for answer tokens (A, B, C, D) at the last position and selecting the highest. Each example receives a binary correctness label (1 if correct, 0 otherwise).<br><br>
+            <b>Labels:</b> We use <b>logit-based prediction</b>: examining logits for each answer choice at the last position and selecting the highest. Each example receives a binary correctness label (1 if correct, 0 otherwise).<br><br>
 
             <span class="subsection">4.2 Evaluation Metrics</span><br><br>
 
             We evaluate probes on three complementary metrics:
 
             <ul>
-              <li><b>AUROC</b>: Measures discrimination—the probability that a correct answer receives higher confidence than an incorrect one. Range [0, 1], where 0.5 is random.</li>
+              <li><b>AUROC</b>: Measures discrimination—the probability that a correct answer receives higher confidence than an incorrect one. Range [0, 1], where 0.5 is random. We use AUROC because it is threshold-independent and directly evaluates the probe's ability to rank answers, which is essential for selective prediction (abstaining on low-confidence outputs).</li>
 
-              <li><b>Brier Score</b> <a href="#ref_20">[20]</a>: A proper scoring rule measuring calibration and discrimination: \(\frac{1}{N} \sum_{i=1}^{N} (p_i - y_i)^2\). Lower is better (0 is perfect).</li>
+              <li><b>Brier Score</b> <a href="#ref_20">[20]</a>: A proper scoring rule measuring calibration and discrimination jointly: \(\frac{1}{N} \sum_{i=1}^{N} (p_i - y_i)^2\). Lower is better (0 is perfect). We use Brier score because, unlike cross-entropy, it does not reward extreme predictions—making it ideal for evaluating well-calibrated probability estimates rather than just classification accuracy.</li>
 
-              <li><b>ECE</b> <a href="#ref_19">[19]</a>: Expected Calibration Error measures pure calibration by binning predictions: \(\sum_{b=1}^{B} \frac{n_b}{N} | \text{acc}(b) - \text{conf}(b) |\). We use \(B = 10\) bins. Lower is better.</li>
+              <li><b>ECE</b> <a href="#ref_19">[19]</a>: Expected Calibration Error measures pure calibration by binning predictions: \(\sum_{b=1}^{B} \frac{n_b}{N} | \text{acc}(b) - \text{conf}(b) |\). We use \(B = 10\) bins. Lower is better. We include ECE because it isolates calibration from discrimination, directly measuring whether predicted probabilities match empirical frequencies—critical for deployment where users must trust confidence scores.</li>
             </ul><br>
 
             <span class="subsection">4.3 Baseline: Do Probes Work?</span><br><br>
