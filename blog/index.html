@@ -4,8 +4,18 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 
 <!-- MathJax for consistent math rendering across browsers -->
-<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js"></script>
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['$$', '$$']],
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
 <link rel="shortcut icon" href="images/icon.ico">
 <style type="text/css">
@@ -257,11 +267,11 @@
           </p>
 
           <p>
-          Post-hoc calibration methods attempt to fix miscalibration after training. <b>Temperature scaling</b> divides logits by a learned temperature T > 1 to soften overconfident predictions, while <b>Platt scaling</b> fits a logistic regression on held-out data. However, these methods assume the model's ranking is correct and only adjust the probability scale—they cannot fix cases where the model is confidently wrong about ordering. For LLMs, calibration is particularly challenging because confidence can vary across domains, question types, and even prompt phrasings.
+          Post-hoc calibration methods attempt to fix miscalibration after training. <b>Temperature scaling</b> divides logits by a learned temperature \(T > 1\) to soften overconfident predictions, while <b>Platt scaling</b> fits a logistic regression on held-out data. However, these methods assume the model's ranking is correct and only adjust the probability scale—they cannot fix cases where the model is confidently wrong about ordering. For LLMs, calibration is particularly challenging because confidence can vary across domains, question types, and even prompt phrasings.
           </p>
 
           <p>
-          We train probes with <b>Brier score</b> <a href="#ref_20">[20]</a>, a proper scoring rule: (predicted − actual)². Unlike cross-entropy, which can be minimized by extreme confident predictions, Brier score is uniquely minimized when predictions equal true probabilities. This encourages our probes to output calibrated confidence estimates rather than just discriminating correct from incorrect.
+          We train probes with <b>Brier score</b> <a href="#ref_20">[20]</a>, a proper scoring rule: \((\hat{p} - y)^2\). Unlike cross-entropy, which can be minimized by extreme confident predictions, Brier score is uniquely minimized when predictions equal true probabilities. This encourages our probes to output calibrated confidence estimates rather than just discriminating correct from incorrect.
           </p>
 
 		<b>2.3 Research Gaps We Address</b>
@@ -326,54 +336,78 @@
 
             <b>3.1 Problem Formulation</b><br><br>
 
-            Given an LLM M, a question q, and the model's generated answer a, we aim to predict whether a is correct. Formally, let h<sup>(l)</sup> &in; &#x211D;<sup>d</sup> denote the hidden state at layer l, and let z &in; &#x211D;<sup>K</sup> denote the output logits for K answer choices. We train a probe f<sub>&theta;</sub> to predict:<br><br>
-            <center>
-              <math xmlns="http://www.w3.org/1998/Math/MathML">
-                <mrow>
-                  <mover>
-                    <mi>p</mi>
-                    <mo>^</mo>
-                  </mover>
-                  <mo>=</mo>
-                  <msub>
-                    <mi>f</mi>
-                    <mi>&theta;</mi>
-                  </msub>
-                  <mo>(</mo>
-                  <msup><mi>h</mi><mrow><mo>(</mo><msub><mi>l</mi><mn>1</mn></msub><mo>)</mo></mrow></msup>
-                  <mo>,</mo>
-                  <mo>...</mo>
-                  <mo>,</mo>
-                  <msup><mi>h</mi><mrow><mo>(</mo><msub><mi>l</mi><mi>k</mi></msub><mo>)</mo></mrow></msup>
-                  <mo>,</mo>
-                  <mi>z</mi>
-                  <mo>)</mo>
-                  <mo>&isin;</mo>
-                  <mo>[</mo>
-                  <mn>0</mn>
-                  <mo>,</mo>
-                  <mn>1</mn>
-                  <mo>]</mo>
-                </mrow>
-              </math>
-            </center><br>
-            where p&#770; is the predicted probability that a is correct.<br><br>
+            Given an LLM \(M\), a question \(q\), and the model's generated answer \(a\), we aim to predict whether \(a\) is correct. Formally, let \(\mathbf{h}^{(l)} \in \mathbb{R}^d\) denote the hidden state at layer \(l\), and let \(\mathbf{z} \in \mathbb{R}^K\) denote the output logits for \(K\) answer choices. We train a probe \(f_\theta\) to predict:<br><br>
 
-            <b>3.2 Datasets</b><br><br>
+            $$\hat{p} = f_\theta\bigl(\mathbf{h}^{(l_1)}, \ldots, \mathbf{h}^{(l_k)}, \mathbf{z}\bigr) \in [0, 1]$$
 
-            We evaluate on the widely-used <b>MMLU</b> <a href="#ref_23">[23]</a> (Massive Multitask Language Understanding) benchmark, spanning 57 subjects from STEM to humanities with 4-choice questions. It tests a combination of knowledge recall and reasoning across diverse domains, making it suitable for evaluating whether uncertainty signals generalize across subject matter.<br><br>
+            where \(\hat{p}\) is the predicted probability that \(a\) is correct.<br><br>
 
-            We use the MMLU validation set, sampling <b>2,000 examples</b> for our experiments. This provides sufficient data for robust probe training while remaining tractable for hidden state extraction.<br><br>
+            <b>3.2 Probe Architectures</b><br><br>
 
-            <b>3.3 Answer Generation and Labels</b><br><br>
+            We systematically evaluate 6 probe architectures, each testing specific hypotheses about how uncertainty is encoded in hidden states. We organize architectures by their primary inductive bias: (1) Linearity (testing if simple models suffice), (2) Information localization (testing if uncertainty is sparse and/or hierarchical), (3) Layer composition (testing if uncertainty is distributed across depths).<br><br>
 
-            A critical design choice is how we obtain the model's "answer" to evaluate. We experiment with two approaches:<br><br>
+            <b>Baseline Probes (Testing Linearity)</b><br><br>
 
-            <b>Logit-based prediction:</b> We examine the logits for answer tokens (A, B, C, D) at the last token position and select the highest. This measures the model's "internal preference" among answer choices.<br><br>
+            <table class="results">
+              <tr>
+                <th style="width: 20%">Architecture</th>
+                <th style="width: 65%">Description</th>
+              </tr>
+              <tr>
+                <td><b>Linear Probe</b></td>
+                <td><b>Hypothesis:</b> Uncertainty can be captured by a single linear dimension within the hidden states.<br><br>
+                $$\hat{p} = \sigma(\mathbf{w}^\top \mathbf{h} + b)$$
+                A single linear layer maps the hidden state to a confidence score. If the linear representation hypothesis <a href="#ref_16">[16]</a> holds for uncertainty, this simple classifier should suffice. We train with Brier loss rather than cross-entropy, encouraging calibration.</td>
+              </tr>
+              <tr>
+                <td><b>MLP Probe</b></td>
+                <td><b>Hypothesis:</b> The model encodes uncertainty in patterns that can't be captured by a purely linear probe.<br><br>
+                $$\hat{p} = \sigma\bigl(\mathbf{W}_2 \cdot \text{ReLU}(\mathbf{W}_1 \mathbf{h} + \mathbf{b}_1) + b_2\bigr)$$
+                A two-layer MLP with ReLU activations learns nonlinear interactions between hidden-state dimensions, letting us test whether uncertainty is encoded on a nonlinear manifold rather than a single direction.</td>
+              </tr>
+            </table><br>
 
-            <b>Generation-based prediction:</b> We prompt the model to generate an answer and parse the output. This better reflects real-world deployment but introduces parsing complexity.<br><br>
+            <b>Structural Hypotheses (Testing if uncertainty is reflected in architectural structure)</b><br><br>
 
-            Each example receives a <b>binary correctness label</b>: 1 if the model's answer matches ground truth, 0 otherwise. We do not use partial credit; the model is either right or wrong. This clean supervision signal makes probe training straightforward.<br><br>
+            <table class="results">
+              <tr>
+                <th style="width: 20%">Architecture</th>
+                <th style="width: 65%">Description</th>
+              </tr>
+              <tr>
+                <td><b>SparseProbe</b></td>
+                <td><b>Hypothesis:</b> Only a small subset of hidden-state dimensions meaningfully encode uncertainty, revealing a sparse internal signal.<br><br>
+                $$\hat{p} = \sigma(\mathbf{w}^\top (\mathbf{g} \odot \mathbf{h}) + b), \quad \mathbf{g} = \sigma(\mathbf{V}\mathbf{h})$$
+                A differentiable gating mechanism \(\mathbf{g}\) assigns importance weights to each dimension before a linear readout, revealing whether uncertainty is concentrated in a sparse subset of coordinates.</td>
+              </tr>
+              <tr>
+                <td><b>HierarchicalProbe</b></td>
+                <td><b>Hypothesis:</b> Uncertainty is built up across layers through hierarchical refinement, with each depth contributing a different part of the signal.<br><br>
+                $$\hat{p} = \sigma\bigl(\text{MLP}_{\text{global}}([\mathbf{r}_{\text{fine}}; \mathbf{r}_{\text{mid}}; \mathbf{r}_{\text{sem}}])\bigr)$$
+                We process the hidden state at fine, mid, and semantic levels—using chunk MLPs, attention pooling, and a global feedforward head—to test whether uncertainty emerges through hierarchical refinement.</td>
+              </tr>
+            </table><br>
+
+            <b>Multi-Layer Architectures (Testing if uncertainty is distributed across depths)</b><br><br>
+
+            <table class="results">
+              <tr>
+                <th style="width: 20%">Architecture</th>
+                <th style="width: 65%">Description</th>
+              </tr>
+              <tr>
+                <td><b>Ensemble Probe</b></td>
+                <td><b>Hypothesis:</b> Different layers capture complementary pieces of uncertainty, so combining probes across depths yields a stronger signal than any single layer.<br><br>
+                $$\hat{p} = \sum_{l} \alpha_l \cdot \hat{p}_l, \quad \boldsymbol{\alpha} = \text{softmax}(\mathbf{a})$$
+                We train linear probes on multiple layers and learn softmax combination weights \(\boldsymbol{\alpha}\) to determine whether different depths contribute complementary components of the uncertainty signal.</td>
+              </tr>
+              <tr>
+                <td><b>Fusion Probe</b></td>
+                <td><b>Hypothesis:</b> A model's internal uncertainty can diverge from its output confidence, and combining hidden-state features with logit signals can reveal this mismatch.<br><br>
+                $$\hat{p} = \sigma\bigl(\text{MLP}([\mathbf{h}_{\text{attn}}; \mathbf{f}_{\text{logit}}])\bigr), \quad \mathbf{f}_{\text{logit}} = [H(\mathbf{z}), \text{margin}(\mathbf{z}), \max(\mathbf{z})]$$
+                This probe integrates per-layer MLP encoders with logit-based features (entropy \(H\), margin, max probability) through cross-layer attention to detect cases where internal uncertainty diverges from the model's expressed confidence.</td>
+              </tr>
+            </table><br>
 
 		    </div>
 		    <div class="margin-right-block">
@@ -384,17 +418,54 @@
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-            <b>3.4 Model and Hidden State Extraction</b><br><br>
-            <ul>
-              <li><b>Model Selection: </b> We chose Qwen2.5-7B for our systematic evaluation after comparing multiple 7B-scale models.</li> 
-              <li><b>Quantization:</b> 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a> enables extraction on consumer GPUs. Hidden states are converted to float32 for probe training.</li>
-              <li><b>Layer selection:</b> We extract from quartile positions [7, 14, 21, 27], capturing early (syntactic), middle (semantic), and late (task-specific) processing stages.</li>
-              <li><b>Token position:</b> We use the <b>last token</b> hidden state, which aggregates context via the attention mechanism and represents the model's "decision point" before generating an answer.</li>
-            </ul><br>
+            <b>3.3 Experimental Design</b><br><br>
+
+            We use a <b>two-stage experimental design</b> to systematically test our hypotheses:<br><br>
+
+            <b>Experiment 1: Architecture Comparison</b><br>
+            Given access to a single middle layer (layer 14, ~50% depth), which probe architecture best extracts uncertainty? We compare Linear, MLP, Hierarchical, and Sparse probes to test whether uncertainty is linearly encoded, requires nonlinear extraction, or benefits from structural inductive biases.<br><br>
+
+            <b>Experiment 2: Information Source Comparison</b><br>
+            Given that linear probes work well, what information should we provide as input? We compare:
+            <ol>
+              <li><b>Single layer</b> (layer 14 only) — baseline</li>
+              <li><b>Multi-layer ensemble</b> (layers 7, 14, 21, 27) — tests layer complementarity</li>
+              <li><b>Fusion</b> (4 layers + output logits) — tests miscalibration detection</li>
+            </ol>
+
+            This two-stage approach cleanly separates the "how to probe" question (architecture) from the "what to probe" question (information sources).<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
-            <b>Why Qwen?</b> We selected Qwen2.5-7B after evaluating several 7B-scale models, including Mistral-7B, because it offers strong performance, open accessibility, and reliable reproducibility. Preliminary tests showed that probes trained on Mistral-7B hidden states produced noticeably worse calibration—about 0.10 higher Brier scores—than those trained on Qwen2.5-7B. Given this consistent empirical advantage, Qwen2.5-7B was the natural choice for our study.<br><br>
+            <b>Why two stages?</b> Experiment 1 identifies the best probe design. Experiment 2 builds on that finding by testing whether additional information (more layers, logit features) improves performance. This avoids confounding architecture choices with input choices.<br><br>
+		    </div>
+		</div>
+
+		<div class="content-margin-container">
+				<div class="margin-left-block">
+				</div>
+		    <div class="main-content-block">
+            <b>3.4 Experimental Setup</b><br><br>
+
+            <b>Dataset</b><br>
+            We evaluate on <b>MMLU</b> <a href="#ref_23">[23]</a> (Massive Multitask Language Understanding), spanning 57 subjects from STEM to humanities with 4-choice questions. We sample <b>2,000 examples</b> from the validation set, providing sufficient data for robust probe training while remaining tractable for hidden state extraction.<br><br>
+
+            <b>Model Selection</b><br>
+            We use <b>Qwen2.5-7B</b> with 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. We selected Qwen after preliminary tests showed probes trained on Mistral-7B produced ~0.10 higher Brier scores, indicating worse calibration. Hidden states are converted to float32 for probe training.<br><br>
+
+            <b>Hidden State Extraction</b><br>
+            <ul>
+              <li><b>Layer selection:</b> Quartile positions [7, 14, 21, 27], capturing early (syntactic), middle (semantic), and late (task-specific) processing stages.</li>
+              <li><b>Token position:</b> Last token hidden state, which aggregates context via attention and represents the model's "decision point."</li>
+            </ul><br>
+
+            <b>Answer Generation and Labels</b><br>
+            We use <b>logit-based prediction</b>: examining logits for answer tokens (A, B, C, D) at the last position and selecting the highest. This measures the model's internal preference and avoids parsing ambiguity from free-form generation. Each example receives a <b>binary correctness label</b> (1 if correct, 0 otherwise).<br><br>
+
+		    </div>
+		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
+            <b>Why MMLU?</b> With 57 subjects spanning STEM, humanities, and social sciences, MMLU tests whether uncertainty signals generalize across domains.<br><br>
+            <b>Why constrained generation?</b> Free-form generation introduces ambiguity in answer extraction. Constraining to valid answer tokens eliminates this noise.<br><br>
 		    </div>
 		</div>
 
@@ -408,20 +479,7 @@
 
             All probes are trained with:
             <ul>
-              <li><b>Loss:</b> Brier score (squared error between predicted probability and binary label):
-                <math xmlns="http://www.w3.org/1998/Math/MathML" style="display: inline-block; vertical-align: middle; margin-left: 8px;">
-                  <msup>
-                    <mrow>
-                      <mo>(</mo>
-                      <mover><mi>p</mi><mo>^</mo></mover>
-                      <mo>-</mo>
-                      <mi>y</mi>
-                      <mo>)</mo>
-                    </mrow>
-                    <mn>2</mn>
-                  </msup>
-                </math>
-              </li>
+              <li><b>Loss:</b> Brier score (squared error between predicted probability and binary label): \((\hat{p} - y)^2\)</li>
               <li><b>Optimizer:</b> AdamW (lr=1e-3, weight_decay=1e-5)</li>
               <li><b>Schedule:</b> Cosine annealing over 100 epochs</li>
               <li><b>Selection:</b> Best validation Brier score checkpoint</li>
@@ -437,70 +495,7 @@
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-            
-            <b>3.6 Probe Architectures</b><br><br>
-
-            We systematically evaluate 6 probe architectures, each testing specific hypotheses about how uncertainty is encoded in hidden states. We organize architectures by their primary inductive bias: (1) Linearity (testing if simple models suffice), (2) Information localization (testing if uncertainty is sparse and/or hierarchical), (3) Layer composition (testing if uncertainty is distributed across depths). This taxonomy allows systematic hypothesis testing rather than ad-hoc architecture comparisons. Some architectures (e.g., hierarchical models) process representations from multiple layers jointly, while single-layer probes operate on each layer independently.<br><br>
-
-            <b>Baseline Probes (Testing Linearity)</b><br><br>
-
-            <table class="results">
-              <tr>
-                <th style="width: 20%">Architecture</th>
-                <th style="width: 65%">Description</th>
-              </tr>
-              <tr>
-                <td><b>Linear Probe</b></td>
-                <td><b>Hypothesis:</b> Uncertainty can be captured by a single linear dimension within the hidden states.<br><br>
-                A single linear layer maps the hidden state to a confidence score. If the linear representation hypothesis <a href="#ref_16">[16]</a> holds for uncertainty, this simple classifier should suffice. We train with Brier loss rather than cross-entropy, encouraging calibration.</td>
-              </tr>
-              <tr>
-                <td><b>MLP Probe</b></td>
-                <td><b>Hypothesis:</b> The model encodes uncertainty in patterns that can’t be captured by a purely linear probe. <br><br>
-                A two-layer MLP with ReLU activations learns nonlinear interactions between hidden-state dimensions, letting us test whether uncertainty is encoded on a nonlinear manifold rather than a single direction.</td>
-              </tr>
-            </table><br>
-
-            <b>Structural Hypotheses (Testing if uncertainty is sparse and/or hierarchical)</b><br><br>
-
-            <table class="results">
-              <tr>
-                <th style="width: 20%">Architecture</th>
-                <th style="width: 65%">Description</th>
-              </tr>
-              <tr>
-                <td><b>SparseProbe</b></td>
-                <td><b>Hypothesis:</b> Only a small subset of hidden-state dimensions meaningfully encode uncertainty, revealing a sparse internal signal.<br><br>
-                A differentiable gating mechanism assigns importance weights to each dimension before a linear readout, revealing whether uncertainty is concentrated in a sparse subset of coordinates.</td>
-              </tr>
-              <tr>
-                <td><b>HierarchicalProbe</b></td>
-                <td><b>Hypothesis:</b> Uncertainty is built up across layers through hierarchical refinement, with each depth contributing a different part of the signal.<br><br>
-                We process each hidden state at fine, mid, and semantic levels—using chunk MLPs, attention, and a global feedforward head—to test whether uncertainty emerges through hierarchical refinement.</td>
-              </tr>
-            </table><br>
-
-
-            <b>Multi-Layer Architectures (Testing if uncertainty is distributed across depths)</b><br><br>
-
-            <table class="results">
-              <tr>
-                <th style="width: 20%">Architecture</th>
-                <th style="width: 65%">Description</th>
-              </tr>
-              <tr>
-                <td><b>Ensemble Probe</b></td>
-                <td><b>Hypothesis:</b> Different layers capture complementary pieces of uncertainty, so combining probes across depths yields a stronger signal than any single layer. <br><br>
-                We train linear probes on multiple layers and learn softmax combination weights to determine whether different depths contribute complementary components of the uncertainty signal.</td>
-              </tr>
-              <tr>
-                <td><b>Fusion Probe</b></td>
-                <td><b>Hypothesis:</b> A model’s internal uncertainty can diverge from its output confidence, and combining hidden-state features with logit signals can reveal this mismatch. <br><br>
-                This probe integrates per-layer MLP encoders with logit-based features (entropy, margin) through cross-layer attention to detect cases where internal uncertainty diverges from the model’s expressed confidence.</td>
-              </tr>
-            </table><br>
-
-            <b>3.7 Evaluation Metrics</b><br><br>
+            <b>3.6 Evaluation Metrics</b><br><br>
 
             We evaluate probes on three complementary metrics that capture different aspects of uncertainty quantification:
             
@@ -508,70 +503,25 @@
               <li><b>AUROC</b> (Area Under ROC Curve): Measures the probability that a randomly chosen correct answer receives a higher confidence score than a randomly chosen incorrect answer. It ranges from 0 to 1, where 0.5 indicates random ranking and 1.0 indicates perfect discrimination between correct and incorrect predictions.</li>
               
               <li><b>Brier Score</b> <a href="#ref_20">[20]</a>: A <i>proper scoring rule</i> measuring both calibration and discrimination simultaneously. Computed as:
-                <center>
-                  <math xmlns="http://www.w3.org/1998/Math/MathML">
-                    <mrow>
-                      <mi>Brier</mi>
-                      <mo>=</mo>
-                      <mfrac>
-                        <mn>1</mn>
-                        <mi>N</mi>
-                      </mfrac>
-                      <munderover>
-                        <mo>&sum;</mo>
-                        <mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow>
-                        <mi>N</mi>
-                      </munderover>
-                      <msup>
-                        <mrow>
-                          <mo>(</mo>
-                          <msub><mi>p</mi><mi>i</mi></msub>
-                          <mo>-</mo>
-                          <msub><mi>y</mi><mi>i</mi></msub>
-                          <mo>)</mo>
-                        </mrow>
-                        <mn>2</mn>
-                      </msup>
-                    </mrow>
-                  </math>
-                </center><br>
+
+                $$\text{Brier} = \frac{1}{N} \sum_{i=1}^{N} (p_i - y_i)^2$$
+
                 Lower is better (0 is perfect). Unlike AUROC, Brier score rewards confident correct predictions and heavily penalizes confident incorrect ones, making it ideal for hallucination detection where we want to know <i>how confident</i> the model should be, not just which answer is more likely correct.</li>
-              
+
               <li><b>ECE</b> (Expected Calibration Error) <a href="#ref_19">[19]</a>: Measures pure <i>calibration</i> by binning predictions and computing the gap between predicted confidence and observed accuracy:
-                <center>
-                  <math xmlns="http://www.w3.org/1998/Math/MathML">
-                    <mrow>
-                      <mi>ECE</mi>
-                      <mo>=</mo>
-                      <munderover>
-                        <mo>&sum;</mo>
-                        <mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow>
-                        <mi>B</mi>
-                      </munderover>
-                      <mfrac>
-                        <msub><mi>n</mi><mi>b</mi></msub>
-                        <mi>N</mi>
-                      </mfrac>
-                      <mo>|</mo>
-                      <mi>acc</mi><mo>(</mo><mi>b</mi><mo>)</mo>
-                      <mo>-</mo>
-                      <mi>conf</mi><mo>(</mo><mi>b</mi><mo>)</mo>
-                      <mo>|</mo>
-                    </mrow>
-                  </math>
-                </center><br>
-                We use 10 bins. Lower is better (0 is perfect calibration). A model with ECE = 0.05 means that on average, its predicted confidence differs from actual accuracy by 5 percentage points.</li>
+
+                $$\text{ECE} = \sum_{b=1}^{B} \frac{n_b}{N} \bigl| \text{acc}(b) - \text{conf}(b) \bigr|$$
+
+                We use \(B = 10\) bins. Lower is better (0 is perfect calibration). A model with ECE = 0.05 means that on average, its predicted confidence differs from actual accuracy by 5 percentage points.</li>
             </ul><br>
             
             <b>Metric complementarity:</b> We use three complementary metrics to fully characterize probe performance. AUROC measures discrimination ability, ECE measures calibration quality, and Brier Score—as a proper scoring rule—jointly evaluates both. This combination reveals whether probes succeed through accurate ranking, well-calibrated probabilities, or both.
         
 		    </div>
-		    <div class="margin-right-block" style="transform: translate(0%, -45%);">
-          <b>Why constrained generation?</b> Free-form generation introduces ambiguity in answer extraction. Constraining to valid answer tokens eliminates this noise.<br><br>
-
+		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
           <b>Why k-fold CV?</b> With ~2K examples, a single 60/20/20 split wastes data. K-fold ensures all examples contribute to both training and evaluation, yielding more reliable estimates.<br><br>
 
-          <b>Why two-stage experiments?</b> Experiment 1 tests four architectures (Linear, MLP, Hierarchical, Sparse) to identify the best probe design. Experiment 2 builds on the finding that linear probes are effective by testing three information aggregation strategies: single-layer linear probe, multi-layer ensemble of linear probes with learned weights, and fusion architecture that combines per-layer linear probes with output logit features. This tests whether the advantage comes from the probe architecture itself or from the information provided as input.
+          <b>Why these three metrics?</b> AUROC tells us if the probe ranks correctly, ECE tells us if probabilities are calibrated, and Brier score captures both. A probe could have high AUROC but poor ECE (good ranking, bad probabilities).<br><br>
 		    </div>
 		</div>
 
