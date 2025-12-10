@@ -430,7 +430,7 @@
             
             <b>3.6 Probe Architectures</b><br><br>
 
-            We systematically evaluate 6 probe architectures, each testing specific hypotheses about how uncertainty is encoded in hidden states. We organize architectures by their primary inductive bias: (1) Linearity (testing if simple models suffice), (2) Information localization (testing if uncertainty is sparse or hierarchical), (3) Layer composition (testing if uncertainty is distributed across depths). This taxonomy allows systematic hypothesis testing rather than ad-hoc architecture comparisons. Some architectures (e.g., hierarchical models) process representations from multiple layers jointly, while single-layer probes operate on each layer independently.<br><br>
+            We systematically evaluate 6 probe architectures, each testing specific hypotheses about how uncertainty is encoded in hidden states. We organize architectures by their primary inductive bias: (1) Linearity (testing if simple models suffice), (2) Information localization (testing if uncertainty is sparse and/or hierarchical), (3) Layer composition (testing if uncertainty is distributed across depths). This taxonomy allows systematic hypothesis testing rather than ad-hoc architecture comparisons. Some architectures (e.g., hierarchical models) process representations from multiple layers jointly, while single-layer probes operate on each layer independently.<br><br>
 
             <b>Baseline Probes (Testing Linearity)</b><br><br>
 
@@ -438,19 +438,16 @@
               <tr>
                 <th style="width: 20%">Architecture</th>
                 <th style="width: 65%">Description</th>
-                <th style="width: 15%">Parameters</th>
               </tr>
               <tr>
                 <td><b>Linear Probe</b></td>
-                <td><b>Hypothesis:</b> Uncertainty is a single direction in hidden space.<br><br>
+                <td><b>Hypothesis:</b> Uncertainty can be captured by a single linear dimension within the hidden states.<br><br>
                 A single linear layer maps the hidden state to a confidence score. If the linear representation hypothesis <a href="#ref_16">[16]</a> holds for uncertainty, this simple classifier should suffice. We train with Brier loss rather than cross-entropy, encouraging calibration.</td>
-                <td>~4K</td>
               </tr>
               <tr>
                 <td><b>MLP Probe</b></td>
-                <td><b>Hypothesis:</b> Uncertainty requires non-linear feature interactions.<br><br>
-                A 2-layer MLP with ReLU activations. Tests whether correctness prediction requires comparing activations across dimensions. Comparing Linear vs MLP directly tests whether uncertainty is linearly encoded.</td>
-                <td>~1M</td>
+                <td><b>Hypothesis:</b> The model encodes uncertainty in patterns that can’t be captured by a purely linear probe. <br><br>
+                A two-layer MLP with ReLU activations learns nonlinear interactions between hidden-state dimensions, letting us test whether uncertainty is encoded on a nonlinear manifold rather than a single direction.</td>
               </tr>
             </table><br>
 
@@ -460,19 +457,16 @@
               <tr>
                 <th style="width: 20%">Architecture</th>
                 <th style="width: 65%">Description</th>
-                <th style="width: 15%">Parameters</th>
               </tr>
               <tr>
                 <td><b>SparseProbe</b></td>
-                <td><b>Hypothesis:</b> The uncertainty signal is concentrated in a small subset of dimensions.<br><br>
-                Learns importance weights for each dimension via differentiable soft weighting. Can identify top-k most informative dimensions for interpretability.</td>
-                <td>~460K</td>
+                <td><b>Hypothesis:</b> Only a small subset of hidden-state dimensions meaningfully encode uncertainty, revealing a sparse internal signal.<br><br>
+                A differentiable gating mechanism assigns importance weights to each dimension before a linear readout, revealing whether uncertainty is concentrated in a sparse subset of coordinates.</td>
               </tr>
               <tr>
                 <td><b>HierarchicalProbe</b></td>
-                <td><b>Hypothesis:</b> Uncertainty exists at multiple levels of granularity.<br><br>
-                Processes hidden states hierarchically: fine-grained chunks → mid-level attention aggregation → semantic processing → global prediction. Each level builds on the previous.</td>
-                <td>~320K</td>
+                <td><b>Hypothesis:</b> Uncertainty is built up across layers through hierarchical refinement, with each depth contributing a different part of the signal.<br><br>
+                We process each hidden state at fine, mid, and semantic levels—using chunk MLPs, attention, and a global feedforward head—to test whether uncertainty emerges through hierarchical refinement.</td>
               </tr>
             </table><br>
 
@@ -483,30 +477,25 @@
               <tr>
                 <th style="width: 20%">Architecture</th>
                 <th style="width: 65%">Description</th>
-                <th style="width: 15%">Parameters</th>
               </tr>
               <tr>
                 <td><b>Ensemble Probe</b></td>
-                <td><b>Hypothesis:</b> Uncertainty is distributed across layers, with complementary signals at different depths.<br><br>
-                Four parallel linear probes (one per quartile layer) with learned softmax-normalized combination weights. Allows empirical testing of the "middle layers are optimal" hypothesis by inspecting learned weights.</td>
-                <td>~20K</td>
+                <td><b>Hypothesis:</b> Different layers capture complementary pieces of uncertainty, so combining probes across depths yields a stronger signal than any single layer. <br><br>
+                We train linear probes on multiple layers and learn softmax combination weights to determine whether different depths contribute complementary components of the uncertainty signal.</td>
               </tr>
               <tr>
                 <td><b>Fusion Probe</b></td>
-                <td><b>Hypothesis:</b> Internal uncertainty (hidden states) and expressed confidence (logits) can diverge.<br><br>
-                Combines per-layer MLPs, cross-layer attention, and logit feature extraction (entropy, margin, max probability). Designed to detect miscalibration: when model "knows it doesn't know" internally but expresses high confidence.</td>
-                <td>~100K</td>
+                <td><b>Hypothesis:</b> A model’s internal uncertainty can diverge from its output confidence, and combining hidden-state features with logit signals can reveal this mismatch. <br><br>
+                This probe integrates per-layer MLP encoders with logit-based features (entropy, margin) through cross-layer attention to detect cases where internal uncertainty diverges from the model’s expressed confidence.</td>
               </tr>
             </table><br>
-
-            <b>Design Philosophy:</b> We organize architectures by hypothesis to systematically test different assumptions about uncertainty encoding. Linear Probe and MLP Probe test linearity. Sparse/Hierarchical test structural hypotheses about how information is organized. Ensemble and Fusion test multi-layer hypotheses. In our experiments (Section 4), we focus on the most informative architectures that best illustrate the key findings.<br><br>
 
             <b>3.7 Evaluation Metrics</b><br><br>
 
             We evaluate probes on three complementary metrics that capture different aspects of uncertainty quantification:
             
             <ul>
-              <li><b>AUROC</b> (Area Under ROC Curve): Measures <i>discrimination</i>, the ability to rank correct answers higher than incorrect ones. Ranges from 0 to 1, where 0.5 indicates random performance and 1.0 is perfect. This metric ignores calibration and focuses purely on relative ordering.</li>
+              <li><b>AUROC</b> (Area Under ROC Curve): Measures the probability that a randomly chosen correct answer receives a higher confidence score than a randomly chosen incorrect answer. It ranges from 0 to 1, where 0.5 indicates random ranking and 1.0 indicates perfect discrimination between correct and incorrect predictions.</li>
               
               <li><b>Brier Score</b> <a href="#ref_20">[20]</a>: A <i>proper scoring rule</i> measuring both calibration and discrimination simultaneously. Computed as:
                 <center>
@@ -564,7 +553,7 @@
                 We use 10 bins. Lower is better (0 is perfect calibration). A model with ECE = 0.05 means that on average, its predicted confidence differs from actual accuracy by 5 percentage points.</li>
             </ul><br>
             
-            <b>Metric complementarity:</b> A probe could achieve high AUROC (good discrimination) but poor Brier/ECE (bad calibration) if it correctly orders predictions but assigns extreme probabilities. Conversely, perfect ECE doesn't guarantee good discrimination. We report all three to fully characterize probe performance.
+            <b>Metric complementarity:</b> We use three complementary metrics to fully characterize probe performance. AUROC measures discrimination ability, ECE measures calibration quality, and Brier Score—as a proper scoring rule—jointly evaluates both. This combination reveals whether probes succeed through accurate ranking, well-calibrated probabilities, or both.
         
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -45%);">
