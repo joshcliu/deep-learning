@@ -640,7 +640,7 @@
                 We use 10 bins. Lower is better (0 is perfect calibration). A model with ECE = 0.05 means that on average, its predicted confidence differs from actual accuracy by 5 percentage points.</li>
             </ul><br>
             
-            <b>Metric complementarity:</b> A probe could achieve high AUROC (good discrimination) but poor Brier/ECE (bad calibration) if it correctly orders predictions but assigns extreme probabilities. Conversely, perfect ECE doesn't guarantee good discrimination. We report all three to fully characterize probe performance.
+            <b>Metric complementarity:</b> We use three complementary metrics to fully characterize probe performance. AUROC measures discrimination ability, ECE measures calibration quality, and Brier Score—as a proper scoring rule—jointly evaluates both. This combination reveals whether probes succeed through accurate ranking, well-calibrated probabilities, or both.
         
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -45%);">
