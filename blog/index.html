@@ -419,7 +419,7 @@ MathJax = {
 		    <div class="main-content-block">
             <b>3.3 Dataset</b><br><br>
 
-            We evaluate on <b>MMLU</b> <a href="#ref_23">[23]</a> (Massive Multitask Language Understanding), spanning 57 subjects from STEM to humanities with 4-choice questions. We sample <b>2,000 examples</b> from the validation set, providing sufficient data for robust probe training while remaining tractable for hidden state extraction.<br><br>
+            We evaluate on <b>MMLU</b> <a href="#ref_23">[23]</a> (Massive Multitask Language Understanding), spanning 57 subjects from STEM to humanities with 4-choice questions. We sample <b>1,531 examples</b> from the validation set, providing sufficient data for robust probe training while remaining tractable for hidden state extraction.<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
@@ -433,7 +433,7 @@ MathJax = {
 		    <div class="main-content-block">
             <b>3.4 Training Protocol</b><br><br>
 
-            We use <b>5-fold cross-validation</b> (1,200 train, 300 validation per fold), ensuring all data contributes to both training and evaluation.<br><br>
+            We use 5-fold stratified cross-validation over 1,531 examples. In each fold, about 306 examples are held out as a test set, while the remaining data are split into ~980 training and 245 validation examples, so that each example is used for training in four folds and for testing in one fold.<br><br>
 
             All probes are trained with:
             <ul>
@@ -635,7 +635,7 @@ MathJax = {
 
             <img src="./images/reliability_diags.png" width=650px/><br><br>
 
-            Reliability diagrams visualize calibration by plotting average accuracy (y-axis) vs. predicted confidence (x-axis) in each bin. Perfect calibration lies on the diagonal: when the model predicts 70% confidence, it should be correct 70% of the time. The blue bars show actual accuracy within each confidence bin. Gaps between the bars and the dashed diagonal line indicate miscalibration. The Linear probe (ECE=0.033) and Hierarchical probe (ECE=0.039) show excellent calibration, with accuracy closely tracking predicted confidence. The Sparse probe (ECE=0.041) also demonstrates good calibration. In contrast, the MLP probe (ECE=0.223) shows significant miscalibration, with accuracy deviating substantially from confidence across bins, particularly in lower confidence ranges where it is under-confident.<br><br>
+            Reliability diagrams visualize calibration by plotting average accuracy (y-axis) vs. predicted confidence (x-axis) in each bin. Perfect calibration lies on the diagonal: when the model predicts 70% confidence, it should be correct 70% of the time. The blue bars show actual accuracy within each confidence bin. Gaps between the bars and the dashed diagonal line indicate miscalibration. The Linear probe (ECE=0.033) and Hierarchical probe (ECE=0.039) show excellent calibration, with accuracy closely tracking predicted confidence. The Sparse probe (ECE=0.041) also demonstrates good calibration with a slight decrease in calibration at higher confidence ranges. In contrast, the MLP probe (ECE=0.223) shows significant miscalibration, with accuracy deviating substantially from confidence across bins, particularly in lower confidence ranges.<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
