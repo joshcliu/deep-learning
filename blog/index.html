@@ -239,24 +239,22 @@ MathJax = {
 
         <span class="subsection">2.1 Probing Internal Representations</span>
           <p>
-          Our approach fits into a fourth paradigm: probing internal representations. The basic idea
-          is that if a model has already computed something like “confidence” internally, we should
-          be able to read it out by training a small classifier on its hidden states. This aims to
+          Our approach fits into a fourth paradigm: probing internal representations. The core idea is that if a model encodes something like “confidence” 
+          in its internal representations, then a lightweight classifier trained on its hidden states should be able to extract it. This aims to
           keep the single-forward-pass efficiency of logit-based methods while tapping into
           potentially richer signals than output probabilities or verbalized confidence.
           </p>
           
           <p>
-          Probing itself has a long history in NLP. Hewitt and Manning
-          <a href="#ref_6">[6]</a> showed that syntactic structure can be linearly recovered from BERT's
-          hidden space, suggesting that if a property is linearly extractable, the model has likely
-          computed it explicitly, whereas properties that only appear under complex nonlinear probes
-          may be artifacts of the probe. For uncertainty, Kadavath et al. <a href="#ref_3">[3]</a> found that
-          large LLMs can meaningfully judge their own answers, and Burns et al.
-          <a href="#ref_4">[4]</a> proposed Contrast-Consistent Search (CCS), which recovers a truthfulness signal
-          from hidden states without labels, though it relies on contrastive statement pairs and does
-          not directly handle open-ended generation.
+            Probing itself has a long history in NLP. Hewitt and Manning <a href="#ref_6">[6]</a> showed that
+            syntactic structure can be linearly recovered from BERT’s hidden space.
+            For uncertainty, Kadavath et al. <a href="#ref_3">[3]</a> found that large LLMs can meaningfully
+            judge their own answers, and Burns et al. <a href="#ref_4">[4]</a> proposed Contrast-Consistent
+            Search (CCS), which recovers a truthfulness signal from hidden states without
+            labels, though it relies on contrastive statement pairs and does not directly
+            handle open-ended generation.
           </p>
+
           
           <p>
           More recent work asks <i>where</i> this kind of information lives. Azaria and Mitchell
@@ -269,7 +267,7 @@ MathJax = {
           
 		<span class="subsection">2.2 Calibration</span>
           <p>
-          A well-calibrated model's confidence matches its accuracy: when it predicts 70% confidence, it should be correct 70% of the time. Calibration is distinct from discrimination (ranking correct above incorrect)—a model can perfectly rank answers yet assign wildly wrong probabilities. Guo et al. <a href="#ref_12">[12]</a> showed that modern neural networks are systematically overconfident and introduced Expected Calibration Error (ECE), which bins predictions by confidence and measures the gap between predicted confidence and observed accuracy.
+          A well-calibrated model's confidence matches its accuracy: when it predicts 70% confidence, it should be correct 70% of the time. Calibration is distinct from discrimination (ranking correct above incorrect): a model can perfectly rank answers yet assign wildly wrong probabilities. Guo et al. <a href="#ref_12">[12]</a> showed that modern neural networks are systematically overconfident and introduced Expected Calibration Error (ECE), which bins predictions by confidence and measures the gap between predicted confidence and observed accuracy.
           </p>
 
           <p>
