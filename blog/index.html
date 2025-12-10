@@ -426,14 +426,7 @@ MathJax = {
 		    <div class="main-content-block">
             <span class="subsection">3.3 Dataset</span><br><br>
 
-            We evaluate on two complementary benchmarks totaling <b>~10,000 examples</b>:<br><br>
-
-            <ul>
-              <li><b>MMLU</b> <a href="#ref_23">[23]</a> (Massive Multitask Language Understanding): 57 subjects spanning STEM, humanities, and social sciences with 4-choice questions. We use the full validation set (~1,500 examples) to ensure coverage across all subject categories.</li><br>
-              <li><b>MMLU-Pro</b>: An extended version with 10-choice questions and more challenging reasoning problems. We sample ~8,500 examples, providing greater difficulty variance and testing whether uncertainty signals remain extractable when the task is harder and answer distributions are more uniform.</li>
-            </ul><br>
-
-            Combining both datasets provides sufficient scale for robust probe training while testing generalization across difficulty levels. The 4-choice vs. 10-choice contrast also lets us examine whether uncertainty encoding changes with answer space complexity.<br><br>
+            We evaluate on <b>MMLU</b> <a href="#ref_23">[23]</a> (Massive Multitask Language Understanding), spanning 57 subjects from STEM to humanities with 4-choice questions. We sample <b>1,531 examples</b> from the validation set, providing sufficient data for robust probe training while remaining tractable for hidden state extraction.<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
@@ -447,7 +440,7 @@ MathJax = {
 		    <div class="main-content-block">
             <span class="subsection">3.4 Training Protocol</span><br><br>
 
-            We use <b>10-fold cross-validation</b> (9,000 train / 1,000 validation per fold), ensuring all data contributes to both training and evaluation while providing reliable variance estimates across folds.<br><br>
+            We use 5-fold stratified cross-validation over 1,531 examples. In each fold, about 306 examples are held out as a test set, while the remaining data are split into ~980 training and 245 validation examples, so that each example is used for training in four folds and for testing in one fold.<br><br>
 
             All probes are trained with:
             <ul>
@@ -586,6 +579,12 @@ MathJax = {
 
             This indicates that uncertainty is linearly encoded as a geometric direction in hidden space. Complex architectures overfit by learning spurious correlations in the high-dimensional hidden space that don't generalize, while the capacity-limited linear probe is forced to find a robust direction that corresponds to genuine uncertainty. This finding strongly validates the linear representation hypothesis <a href="#ref_16">[16]</a> and has important implications: uncertainty is explicitly represented as a geometric direction, making it directly accessible via simple probes and potentially steerable via vector arithmetic.<br><br>
 
+            <b>Calibration Analysis:</b><br><br>
+
+            <img src="./images/reliability_diags.png" width=650px/><br><br>
+
+            Reliability diagrams visualize calibration by plotting average accuracy (y-axis) vs. predicted confidence (x-axis) in each bin. Perfect calibration lies on the diagonal: when the model predicts 70% confidence, it should be correct 70% of the time. The blue bars show actual accuracy within each confidence bin. Gaps between the bars and the dashed diagonal line indicate miscalibration. The Linear probe (ECE=0.033) and Hierarchical probe (ECE=0.039) show excellent calibration, with accuracy closely tracking predicted confidence. The Sparse probe (ECE=0.041) also demonstrates good calibration with a slight decrease in calibration at higher confidence ranges. In contrast, the MLP probe (ECE=0.223) shows significant miscalibration, with accuracy deviating substantially from confidence across bins, particularly in lower confidence ranges.<br><br>
+
             <span class="subsection">4.5 Experiment 2: What Information Should We Use?</span><br><br>
 
             <b>Research Question:</b> Given that linear probes work best, what information should we provide as input?<br><br>
@@ -648,12 +647,6 @@ MathJax = {
             <b>Results:</b> Our learned weights confirm that middle layers dominate, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) receives the highest weight, while the final two layers (21, 75% depth) and (27, 96% depth) receive the lowest weight. <br><br>
 
             <b>Interpretation:</b> Hidden states and logits can diverge (miscalibration). When the model is internally uncertain but expresses high confidence, Fusion probe detects this mismatch. The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture its internal uncertainty; when these disagree, the fusion probe can identify cases where the model appears confident but is internally uncertain. This addresses a fundamental limitation of prior probing work: by using only hidden states, probes cannot detect when the model's internal state and expressed confidence disagree.<br><br>
-
-            <b>Calibration Analysis:</b><br><br>
-
-            <img src="./images/reliability_diags.png" width=650px/><br><br>
-
-            Reliability diagrams visualize calibration by plotting average accuracy (y-axis) vs. predicted confidence (x-axis) in each bin. Perfect calibration lies on the diagonal: when the model predicts 70% confidence, it should be correct 70% of the time. The blue bars show actual accuracy within each confidence bin. Gaps between the bars and the dashed diagonal line indicate miscalibration. The Linear probe (ECE=0.033) and Hierarchical probe (ECE=0.039) show excellent calibration, with accuracy closely tracking predicted confidence. The Sparse probe (ECE=0.041) also demonstrates good calibration. In contrast, the MLP probe (ECE=0.223) shows significant miscalibration, with accuracy deviating substantially from confidence across bins, particularly in lower confidence ranges where it is under-confident.<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
