@@ -199,16 +199,15 @@
 		    <div class="main-content-block">
 						<h1>1. Introduction</h1>
 
-            Large language models (LLMs) frequently produce confident incorrect answers, particularly in high-stakes domains like medicine, law, and finance <a href="#ref_1">[1]</a><a href="#ref_2">[2]</a>. The core challenge is not just that models make mistakes, but that they provide little reliable signal about when they are likely to be wrong. Can models "know what they don't know," and if so, can we extract that knowledge from their internal representations?<br><br>
+            Large language models (LLMs) frequently produce confident incorrect answers, particularly in high-stakes domains like medicine, law, and finance <a href="#ref_1">[1]</a><a href="#ref_2">[2]</a>. The core challenge is not just that models make mistakes, but that they provide little reliable signal about when they are likely to be wrong. Reliable uncertainty estimates would enable selective prediction, retrieval augmentation, and human escalation—making LLMs safer for real-world deployment. Can models "know what they don't know," and if so, can we extract that knowledge from their internal representations?<br><br>
 
             <div class="hypothesis">
-              <b>Central Hypothesis:</b> A model's internal representation of uncertainty can diverge from the confidence it expresses in its outputs. By probing hidden layers with both linear and nonlinear architectures, we can detect cases where the model is internally uncertain despite issuing confident predictions.
+              <b>Central Hypothesis:</b> A model's internal representation of uncertainty can diverge from the confidence it expresses in its outputs. By probing hidden layers with both linear and nonlinear architectures, we can accurately measure the model's confidence and uncertainty.
             </div><br>
 
             Evidence suggests such internal signals exist: Kadavath et al. <a href="#ref_3">[3]</a> showed LLMs can predict their own correctness well above chance, Burns et al. <a href="#ref_4">[4]</a> found that hidden states encode truthfulness even without supervised labels, and Gurnee & Tegmark <a href="#ref_5">[5]</a> demonstrated that middle transformer layers encode richer semantic information than final layers. We use <b>probing</b>—training lightweight classifiers on frozen hidden states, as pioneered by Hewitt & Manning <a href="#ref_13">[13]</a> and applied to LLM error detection by Azaria & Mitchell <a href="#ref_14">[14]</a>—to systematically investigate: (1) Is uncertainty linearly encoded, or does it require complex non-linear extraction? (2) Which layers encode uncertainty most strongly? (3) Does combining hidden states with output logits improve calibration?
 		    </div>
 		    <div class="margin-right-block">
-            <b>Why does this matter?</b> Reliable uncertainty estimates enable selective prediction (abstaining on hard cases), retrieval augmentation (calling external knowledge when needed), and human-in-the-loop workflows (routing dubious answers to experts), making LLMs safer and more trustworthy in real-world use.
 		    </div>
 		</div>
 
