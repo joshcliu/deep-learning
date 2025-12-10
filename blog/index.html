@@ -267,11 +267,11 @@ MathJax = {
           
 		<span class="subsection">2.2 Calibration</span>
           <p>
-          A well-calibrated model's confidence matches its accuracy: when it predicts 70% confidence, it should be correct 70% of the time. Calibration is distinct from discrimination (ranking correct above incorrect): a model can perfectly rank answers yet assign wildly wrong probabilities. Guo et al. <a href="#ref_12">[12]</a> showed that modern neural networks are systematically overconfident and introduced Expected Calibration Error (ECE), which bins predictions by confidence and measures the gap between predicted confidence and observed accuracy.
+          A well-calibrated model's confidence matches its accuracy: when it predicts 70% confidence, it should be correct 70% of the time. Calibration differs from discrimination: a model may correctly rank answers while still assigning highly inaccurate probabilities. Guo et al. <a href="#ref_12">[12]</a> showed that modern neural networks are systematically overconfident and introduced Expected Calibration Error (ECE), which bins predictions by confidence and measures the gap between predicted confidence and observed accuracy.
           </p>
 
           <p>
-          Post-hoc calibration methods attempt to fix miscalibration after training. <b>Temperature scaling</b> divides logits by a learned temperature \(T > 1\) to soften overconfident predictions, while <b>Platt scaling</b> fits a logistic regression on held-out data. However, these methods assume the model's ranking is correct and only adjust the probability scale—they cannot fix cases where the model is confidently wrong about ordering. For LLMs, calibration is particularly challenging because confidence can vary across domains, question types, and even prompt phrasings.
+          Post-hoc calibration methods attempt to fix miscalibration after training. <b>Temperature scaling</b> divides logits by a learned temperature \(T > 1\) to soften overconfident predictions, while <b>Platt scaling</b> fits a logistic regression on held-out data. However, these methods assume the model's ranking is correct and only adjust the probability scale; they cannot fix cases where the model is confidently wrong about ordering. For LLMs, calibration is particularly challenging because confidence can vary across domains, question types, and even prompt phrasings.
           </p>
 
           <p>
