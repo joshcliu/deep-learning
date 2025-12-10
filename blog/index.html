@@ -200,7 +200,7 @@ MathJax = {
               <a href="#intro">Introduction</a><br><br>
               <a href="#background">Background</a><br><br>
               <a href="#methodology">Methodology</a><br><br>
-              <a href="#results">Results</a><br><br>
+              <a href="#results">Experiments</a><br><br>
               <a href="#analysis">Discussion</a><br><br>
               <a href="#conclusion">Conclusion</a><br><br>
           </div>
@@ -417,54 +417,13 @@ MathJax = {
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-            <b>3.3 Experimental Design</b><br><br>
+            <b>3.3 Dataset</b><br><br>
 
-            We use a <b>two-stage experimental design</b> to systematically test our hypotheses:<br><br>
-
-            <b>Experiment 1: Architecture Comparison</b><br>
-            Given access to a single middle layer (layer 14, ~50% depth), which probe architecture best extracts uncertainty? We compare Linear, MLP, Hierarchical, and Sparse probes to test whether uncertainty is linearly encoded, requires nonlinear extraction, or benefits from structural inductive biases.<br><br>
-
-            <b>Experiment 2: Information Source Comparison</b><br>
-            Given that linear probes work well, what information should we provide as input? We compare:
-            <ol>
-              <li><b>Single layer</b> (layer 14 only) — baseline</li>
-              <li><b>Multi-layer ensemble</b> (layers 7, 14, 21, 27) — tests layer complementarity</li>
-              <li><b>Fusion</b> (4 layers + output logits) — tests miscalibration detection</li>
-            </ol>
-
-            This two-stage approach cleanly separates the "how to probe" question (architecture) from the "what to probe" question (information sources).<br><br>
-
-		    </div>
-		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
-            <b>Why two stages?</b> Experiment 1 identifies the best probe design. Experiment 2 builds on that finding by testing whether additional information (more layers, logit features) improves performance. This avoids confounding architecture choices with input choices.<br><br>
-		    </div>
-		</div>
-
-		<div class="content-margin-container">
-				<div class="margin-left-block">
-				</div>
-		    <div class="main-content-block">
-            <b>3.4 Experimental Setup</b><br><br>
-
-            <b>Dataset</b><br>
             We evaluate on <b>MMLU</b> <a href="#ref_23">[23]</a> (Massive Multitask Language Understanding), spanning 57 subjects from STEM to humanities with 4-choice questions. We sample <b>2,000 examples</b> from the validation set, providing sufficient data for robust probe training while remaining tractable for hidden state extraction.<br><br>
-
-            <b>Model Selection</b><br>
-            We use <b>Qwen2.5-7B</b> with 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. We selected Qwen after preliminary tests showed probes trained on Mistral-7B produced ~0.10 higher Brier scores, indicating worse calibration. Hidden states are converted to float32 for probe training.<br><br>
-
-            <b>Hidden State Extraction</b><br>
-            <ul>
-              <li><b>Layer selection:</b> Quartile positions [7, 14, 21, 27], capturing early (syntactic), middle (semantic), and late (task-specific) processing stages.</li>
-              <li><b>Token position:</b> Last token hidden state, which aggregates context via attention and represents the model's "decision point."</li>
-            </ul><br>
-
-            <b>Answer Generation and Labels</b><br>
-            We use <b>logit-based prediction</b>: examining logits for answer tokens (A, B, C, D) at the last position and selecting the highest. This measures the model's internal preference and avoids parsing ambiguity from free-form generation. Each example receives a <b>binary correctness label</b> (1 if correct, 0 otherwise).<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -20%);">
             <b>Why MMLU?</b> With 57 subjects spanning STEM, humanities, and social sciences, MMLU tests whether uncertainty signals generalize across domains.<br><br>
-            <b>Why constrained generation?</b> Free-form generation introduces ambiguity in answer extraction. Constraining to valid answer tokens eliminates this noise.<br><br>
 		    </div>
 		</div>
 
@@ -472,7 +431,7 @@ MathJax = {
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-            <b>3.5 Training Protocol</b><br><br>
+            <b>3.4 Training Protocol</b><br><br>
 
             We use <b>5-fold cross-validation</b> (1,200 train, 300 validation per fold), ensuring all data contributes to both training and evaluation.<br><br>
 
@@ -490,48 +449,36 @@ MathJax = {
 		    </div>
 		</div>
 
-		<div class="content-margin-container">
-				<div class="margin-left-block">
-				</div>
-		    <div class="main-content-block">
-            <b>3.6 Evaluation Metrics</b><br><br>
-
-            We evaluate probes on three complementary metrics that capture different aspects of uncertainty quantification:
-            
-            <ul>
-              <li><b>AUROC</b> (Area Under ROC Curve): Measures the probability that a randomly chosen correct answer receives a higher confidence score than a randomly chosen incorrect answer. It ranges from 0 to 1, where 0.5 indicates random ranking and 1.0 indicates perfect discrimination between correct and incorrect predictions.</li>
-              
-              <li><b>Brier Score</b> <a href="#ref_20">[20]</a>: A <i>proper scoring rule</i> measuring both calibration and discrimination simultaneously. Computed as:
-
-                $$\text{Brier} = \frac{1}{N} \sum_{i=1}^{N} (p_i - y_i)^2$$
-
-                Lower is better (0 is perfect). Unlike AUROC, Brier score rewards confident correct predictions and heavily penalizes confident incorrect ones, making it ideal for hallucination detection where we want to know <i>how confident</i> the model should be, not just which answer is more likely correct.</li>
-
-              <li><b>ECE</b> (Expected Calibration Error) <a href="#ref_19">[19]</a>: Measures pure <i>calibration</i> by binning predictions and computing the gap between predicted confidence and observed accuracy:
-
-                $$\text{ECE} = \sum_{b=1}^{B} \frac{n_b}{N} \bigl| \text{acc}(b) - \text{conf}(b) \bigr|$$
-
-                We use \(B = 10\) bins. Lower is better (0 is perfect calibration). A model with ECE = 0.05 means that on average, its predicted confidence differs from actual accuracy by 5 percentage points.</li>
-            </ul><br>
-            
-            <b>Metric complementarity:</b> We use three complementary metrics to fully characterize probe performance. AUROC measures discrimination ability, ECE measures calibration quality, and Brier Score—as a proper scoring rule—jointly evaluates both. This combination reveals whether probes succeed through accurate ranking, well-calibrated probabilities, or both.
-        
-		    </div>
-		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
-          <b>Why k-fold CV?</b> With ~2K examples, a single 60/20/20 split wastes data. K-fold ensures all examples contribute to both training and evaluation, yielding more reliable estimates.<br><br>
-
-          <b>Why these three metrics?</b> AUROC tells us if the probe ranks correctly, ECE tells us if probabilities are calibrated, and Brier score captures both. A probe could have high AUROC but poor ECE (good ranking, bad probabilities).<br><br>
-		    </div>
-		</div>
-
 		<!-- EXPERIMENTS -->
-		<div class="content-margin-container" id="architecture">
+		<div class="content-margin-container" id="results">
 				<div class="margin-left-block">
 				</div>
 		    <div class="main-content-block">
-            <h1>4. Results</h1>
+            <h1>4. Experiments</h1>
 
-            <b>4.1 Baseline Comparison: Do Probes Work?</b><br><br>
+            We use a <b>two-stage experimental design</b> to systematically test our hypotheses. <b>Experiment 1</b> asks: given access to a single middle layer, which probe architecture best extracts uncertainty? We compare Linear, MLP, Hierarchical, and Sparse probes. <b>Experiment 2</b> asks: given that linear probes work well, what information should we provide as input? We compare single-layer, multi-layer ensemble, and fusion (hidden states + logits) configurations.<br><br>
+
+            <b>4.1 Experimental Setup</b><br><br>
+
+            <b>Model:</b> We use <b>Qwen2.5-7B</b> with 8-bit quantization via bitsandbytes <a href="#ref_24">[24]</a>. We selected Qwen after preliminary tests showed probes trained on Mistral-7B produced ~0.10 higher Brier scores, indicating worse calibration.<br><br>
+
+            <b>Hidden State Extraction:</b> We extract from quartile layer positions [7, 14, 21, 27], capturing early (syntactic), middle (semantic), and late (task-specific) processing stages. We use the <b>last token</b> hidden state, which aggregates context via attention and represents the model's "decision point."<br><br>
+
+            <b>Labels:</b> We use <b>logit-based prediction</b>: examining logits for answer tokens (A, B, C, D) at the last position and selecting the highest. Each example receives a binary correctness label (1 if correct, 0 otherwise).<br><br>
+
+            <b>4.2 Evaluation Metrics</b><br><br>
+
+            We evaluate probes on three complementary metrics:
+
+            <ul>
+              <li><b>AUROC</b>: Measures discrimination—the probability that a correct answer receives higher confidence than an incorrect one. Range [0, 1], where 0.5 is random.</li>
+
+              <li><b>Brier Score</b> <a href="#ref_20">[20]</a>: A proper scoring rule measuring calibration and discrimination: \(\frac{1}{N} \sum_{i=1}^{N} (p_i - y_i)^2\). Lower is better (0 is perfect).</li>
+
+              <li><b>ECE</b> <a href="#ref_19">[19]</a>: Expected Calibration Error measures pure calibration by binning predictions: \(\sum_{b=1}^{B} \frac{n_b}{N} | \text{acc}(b) - \text{conf}(b) |\). We use \(B = 10\) bins. Lower is better.</li>
+            </ul><br>
+
+            <b>4.3 Baseline: Do Probes Work?</b><br><br>
 
             Before comparing architectures, we first establish that hidden states contain extractable uncertainty signals. We compare a simple linear probe against a random baseline.<br><br>
 
@@ -559,7 +506,7 @@ MathJax = {
 
             <b>Conclusion:</b> Hidden states contain uncertainty signals. The linear probe achieves AUROC of 0.829, substantially above the random baseline of 0.5016. This confirms that uncertainty information is encoded in the model's internal representations and can be extracted with simple probes.<br><br>
 
-            <b>4.2 Experiment 1: Which Architecture is Best?</b><br><br>
+            <b>4.4 Experiment 1: Which Architecture is Best?</b><br><br>
 
             <b>Research Question:</b> Given access to a single middle layer (layer 14), which probe architecture best extracts uncertainty?<br><br>
 
@@ -621,7 +568,7 @@ MathJax = {
 
             This indicates that uncertainty is linearly encoded as a geometric direction in hidden space. Complex architectures overfit by learning spurious correlations in the high-dimensional hidden space that don't generalize, while the capacity-limited linear probe is forced to find a robust direction that corresponds to genuine uncertainty. This finding strongly validates the linear representation hypothesis <a href="#ref_16">[16]</a> and has important implications: uncertainty is explicitly represented as a geometric direction, making it directly accessible via simple probes and potentially steerable via vector arithmetic.<br><br>
 
-            <b>4.3 Experiment 2: What Information Should We Use?</b><br><br>
+            <b>4.5 Experiment 2: What Information Should We Use?</b><br><br>
 
             <b>Research Question:</b> Given that linear probes work best, what information should we provide as input?<br><br>
 
