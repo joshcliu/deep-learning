@@ -419,7 +419,7 @@ MathJax = {
 		    <div class="main-content-block">
             <span class="subsection">3.3 Dataset</span><br><br>
 
-            We evaluate on two complementary benchmarks totaling <b>~10,000 examples</b>:<br><br>
+            We evaluate on two complementary benchmarks totaling ~10,000 examples:<br><br>
 
             <ul>
               <li><b>MMLU</b> <a href="#ref_15">[15]</a> (Massive Multitask Language Understanding): 57 subjects spanning STEM, humanities, and social sciences with 4-choice questions. We use the full validation set (~1,500 examples) to ensure coverage across all subject categories.</li><br>
@@ -471,15 +471,15 @@ MathJax = {
 		    <div class="main-content-block">
             <h1>4. Experiments</h1>
 
-            We use a <b>two-stage experimental design</b> to systematically test our hypotheses. <b>Experiment 1</b> asks: given access to a single middle layer, which probe architecture best extracts uncertainty? We compare Linear, MLP, Hierarchical, and Sparse probes. <b>Experiment 2</b> asks: given that linear probes work well, what information should we provide as input? We compare single-layer, multi-layer ensemble, and fusion (hidden states + logits) configurations.<br><br>
+            We use a two-stage experimental design to systematically test our hypotheses. Experiment 1 asks: given access to a single middle layer, which probe architecture best extracts uncertainty? We compare Linear, MLP, Hierarchical, and Sparse probes. Experiment 2 asks: given that linear probes work well, what information should we provide as input? We compare single-layer, multi-layer ensemble, and fusion (hidden states + logits) configurations.<br><br>
 
             <span class="subsection">4.1 Experimental Setup</span><br><br>
 
-            <b>Model:</b> We use <b>Qwen2.5-7B</b> with 8-bit quantization via bitsandbytes <a href="#ref_16">[16]</a>. We selected Qwen after preliminary tests comparing Qwen2.5-7B, Mistral-7B, and Llama-3.1-8B showed that probes trained on Mistral and Llama produced ~0.10 higher Brier scores, indicating worse calibration.<br><br>
+            <b>Model:</b> We use Qwen2.5-7B with 8-bit quantization via bitsandbytes <a href="#ref_16">[16]</a>. We selected Qwen after preliminary tests comparing Qwen2.5-7B, Mistral-7B, and Llama-3.1-8B showed that probes trained on Mistral and Llama produced ~0.10 higher Brier scores, indicating worse calibration.<br><br>
 
-            <b>Hidden State Extraction:</b> We extract hidden states at \(k\) evenly-spaced quantile layer positions. After preliminary testing with \(k \in \{2, 4, 6, 8\}\), we selected \(k = 4\), yielding layers [7, 14, 21, 27] for Qwen2.5-7B's 28-layer architecture. These positions capture early (syntactic), middle (semantic), and late (task-specific) processing stages. We use the <b>last token</b> hidden state, which aggregates context via attention and represents the model's "decision point."<br><br>
+            <b>Hidden State Extraction:</b> We extract hidden states at \(k\) evenly-spaced quantile layer positions. After preliminary testing with \(k \in \{2, 4, 6, 8\}\), we selected \(k = 4\), yielding layers [7, 14, 21, 27] for Qwen2.5-7B's 28-layer architecture. These positions capture early (syntactic), middle (semantic), and late (task-specific) processing stages. We use the last token hidden state, which aggregates context via attention and represents the model's "decision point."<br><br>
 
-            <b>Labels:</b> We use <b>logit-based prediction</b>: examining logits for each answer choice at the last position and selecting the highest. Each example receives a binary correctness label (1 if correct, 0 otherwise).<br><br>
+            <b>Labels:</b> We use logit-based prediction: examining logits for each answer choice at the last position and selecting the highest. Each example receives a binary correctness label (1 if correct, 0 otherwise).<br><br>
 
             <span class="subsection">4.2 Evaluation Metrics</span><br><br>
 
@@ -577,7 +577,7 @@ MathJax = {
             <img src="./images/layer_confidence.png" width=700px/><br>
             <i>Figure 1: Linear probe AUROC across transformer layers. Middle layers (75% depth) achieve best single-layer performance.</i><br><br>
 
-            To understand where uncertainty is encoded, we analyze linear probe performance across layers. Our results confirm that <b>middle layers dominate</b>, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) achieves the best single-layer performance. Early layers (7, 25% depth) encode primarily syntactic information, while final layers (27, 96% depth) specialize for output formatting. Neither captures uncertainty as strongly as middle layers where semantic processing peaks.<br><br>
+            To understand where uncertainty is encoded, we analyze linear probe performance across layers. Our results confirm that middle layers dominate, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) achieves the best single-layer performance. Early layers (7, 25% depth) encode primarily syntactic information, while final layers (27, 96% depth) specialize for output formatting. Neither captures uncertainty as strongly as middle layers where semantic processing peaks.<br><br>
 
             <b>Calibration Analysis:</b><br><br>
 
@@ -671,7 +671,7 @@ MathJax = {
 
             <span class="subsection">5.2 The Layer Question</span><br><br>
 
-            The fusion probe's learned weights are approximately uniform across layers, with middle layers receiving only a slight advantage. Uncertainty signal appears to be <b>distributed throughout the network</b> rather than concentrated in specific layers. Each layer captures a different aspect of uncertainty: early layers encode syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. The near-uniform weighting suggests these signals are complementary rather than redundant.<br><br>
+            The fusion probe's learned weights are approximately uniform across layers, with middle layers receiving only a slight advantage. Uncertainty signal appears to be distributed throughout the network rather than concentrated in specific layers. Each layer captures a different aspect of uncertainty: early layers encode syntactic confidence, middle layers encode semantic uncertainty, and later layers reflect task-specific processing. The near-uniform weighting suggests these signals are complementary rather than redundant.<br><br>
 
             Practical implication: multi-layer probes outperform single-layer approaches because they aggregate complementary uncertainty signals from across the network. While middle layers provide the best single-layer performance, the gains from combining layers indicate that no single layer captures the full uncertainty picture.<br><br>
 
@@ -684,10 +684,10 @@ MathJax = {
             <span class="subsection">5.4 Limitations</span><br><br>
 
             <ol>
-              <li>Model-specific findings. Our evaluation focuses on Qwen2.5-7B, and we observed that Llama-3.1-8B produced less calibrated probes (Brier scores ~0.10 higher). Uncertainty encoding may vary across model families and scales. Future work could develop model-agnostic probes by training on hidden states from multiple models, or use transfer learning to adapt probes across architectures.</li>
-              <li>Multiple-choice format. MMLU's constrained 4-choice format may not reflect uncertainty patterns in open-ended generation. Combining probing with semantic entropy <a href="#ref_6">[6]</a> by using probes for efficient screening, then semantic clustering for high-uncertainty cases.</li>
-              <li>Single task type. While MMLU spans 57 subjects, all questions are factual recall. Mathematical reasoning or open-domain QA may exhibit different uncertainty structures. Multi-task probe training across diverse benchmarks.</li>
-              <li>Static extraction. We extract from a single forward pass at the final token. Uncertainty may evolve during chain-of-thought reasoning. Temporal probing, tracking hidden state evolution across reasoning steps.</li>
+              <li>Our evaluation focuses on Qwen2.5-7B, and we observed that Llama-3.1-8B produced less calibrated probes (Brier scores ~0.10 higher). Uncertainty encoding may vary across model families and scales. Future work could develop model-agnostic probes by training on hidden states from multiple models, or use transfer learning to adapt probes across architectures.</li>
+              <li>MMLU's constrained 4-choice format may not reflect uncertainty patterns in open-ended generation. Combining probing with semantic entropy <a href="#ref_6">[6]</a> by using probes for efficient screening, then semantic clustering for high-uncertainty cases could address this.</li>
+              <li>While MMLU spans 57 subjects, all questions are factual recall. Mathematical reasoning or open-domain QA may exhibit different uncertainty structures. Multi-task probe training across diverse benchmarks would help test generalization.</li>
+              <li>We extract from a single forward pass at the final token. Uncertainty may evolve during chain-of-thought reasoning. Temporal probing could track hidden state evolution across reasoning steps.</li>
             </ol><br>
 
             <span class="subsection">5.5 Practical Implications</span><br><br>
