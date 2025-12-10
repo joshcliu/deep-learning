@@ -731,17 +731,7 @@ MathJax = {
 		    <div class="main-content-block">
 						<h1>6. Conclusion</h1>
 
-            We set out to test whether a model's internal representation of uncertainty diverges from its expressed confidence, and whether probing can extract reliable calibration signals. Our experiments on ~10,000 MMLU examples answer the three research questions posed in the introduction:<br><br>
-
-            <ol>
-              <li><b>Is uncertainty linearly encoded?</b> Yes, when information is limited. With a single layer, linear probes (Brier 0.143) outperform MLPs (Brier 0.243) by avoiding overfitting. However, when multiple layers are available, architectures that aggregate information achieve better performance.</li>
-              <li><b>Which layers encode uncertainty?</b> All layers contribute comparably. Learned ensemble weights are approximately uniform, indicating uncertainty is distributed throughout the network rather than concentrated in middle layers. This explains why multi-layer approaches (AUROC 0.862) outperform single-layer probes (AUROC 0.829).</li>
-              <li><b>Does combining hidden states with logits help?</b> Yes, substantially. The fusion probe (AUROC 0.904, Brier 0.098, ECE 0.021) outperforms hidden-states-only approaches by detecting cases where internal uncertainty and expressed confidence diverge.</li>
-            </ol><br>
-
-            These findings validate our central hypothesis: models do "know what they don't know," and this knowledge can be extracted via lightweight probes. The practical implication is a <b>compute-performance tradeoff</b>: single-layer linear probes offer efficient baseline uncertainty quantification, while multi-layer fusion probes achieve superior calibration for high-stakes applications. Both approaches enable selective prediction, uncertainty-triggered retrieval, and human escalation—making LLMs safer for real-world deployment.<br><br>
-
-            Our implementation is available on <a href="https://github.com/joshcliu/deep-learning">Github</a>.
+            We set out to test whether a model's internal representation of uncertainty diverges from its expressed confidence, and whether probing can extract reliable calibration signals. Our experiments on ~10,000 MMLU examples provide clear answers: uncertainty is linearly extractable from single layers (Brier 0.143 vs 0.243 for linear vs MLP), distributed across all layers rather than concentrated in specific depths, and best captured by fusing hidden states with output logits (AUROC 0.904, Brier 0.098, ECE 0.021). These findings validate our central hypothesis—models do "know what they don't know," and this knowledge can be extracted via lightweight probes. The practical implication is a compute-performance tradeoff: single-layer linear probes offer efficient baseline uncertainty quantification, while multi-layer fusion probes achieve superior calibration for high-stakes applications. Both approaches enable selective prediction, uncertainty-triggered retrieval, and human escalation—making LLMs safer for real-world deployment. Our implementation is available on <a href="https://github.com/joshcliu/deep-learning">Github</a>.
 		    </div>
 		    <div class="margin-right-block">
 		    </div>
