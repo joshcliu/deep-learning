@@ -299,9 +299,10 @@ MathJax = {
               <b>Layer localization of uncertainty.</b><br>
               Prior work typically probes single layers <a href="#ref_7">[7]</a>, leaving open
               whether uncertainty is concentrated in specific depths or distributed across the network.<br>
-              <i>Our contribution:</i> We develop an Ensemble Probe with learned layer weights and find that
-              uncertainty signal is <b>distributed across all layers</b> with near-uniform weighting,
-              contradicting assumptions that middle layers are uniquely informative.
+              <i>Our contribution:</i> We confirm that middle layers (50% depth) achieve best single-layer
+              performance, but develop an Ensemble Probe with learned layer weights revealing that
+              <b>combining layers outperforms any single layer</b>—with near-uniform weights indicating
+              each layer contributes complementary uncertainty signal.
             </li>
             <br>
             <li>
@@ -310,8 +311,9 @@ MathJax = {
               <a href="#ref_6">[6]</a><a href="#ref_7">[7]</a>, but this has not been rigorously tested
               against non-linear alternatives for uncertainty.<br>
               <i>Our contribution:</i> We compare linear probes against MLP, Hierarchical, and Sparse baselines
-              and find that <b>linear probes match or outperform complex architectures</b> despite 200× fewer parameters,
-              providing strong evidence that uncertainty is linearly encoded.
+              and find that <b>linear probes achieve statistically equivalent performance</b> to complex
+              architectures despite 80-230× fewer parameters, while the higher-capacity MLP significantly
+              underperforms—suggesting additional complexity leads to overfitting rather than better uncertainty extraction.
             </li>
           </ol>
 
