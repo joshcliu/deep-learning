@@ -447,13 +447,13 @@ MathJax = {
 		    <div class="main-content-block">
             <span class="subsection">3.4 Training Protocol</span><br><br>
 
-            We use <b>10-fold cross-validation</b> (9,000 train / 1,000 validation per fold), ensuring all data contributes to both training and evaluation while providing reliable variance estimates across folds.<br><br>
+            We use 5-fold stratified cross-validation over 1,531 examples. In each fold, about 306 examples are held out as a test set, while the remaining data are split into ~980 training and 245 validation examples, so that each example is used for training in four folds and for testing in one fold.<br><br>
 
             All probes are trained with:
             <ul>
               <li><b>Loss: Brier score</b> \((\hat{p} - y)^2\) — Unlike binary cross-entropy, which can be minimized by making extreme predictions, Brier score is a <i>proper scoring rule</i> that is uniquely minimized when predicted probabilities equal true probabilities. This directly optimizes for calibration rather than just discrimination.</li><br>
 
-              <li><b>Optimizer: AdamW</b> (lr=1e-3, weight_decay=1e-5) — We selected AdamW over SGD for its adaptive learning rates and decoupled weight decay, which provides more stable training on our relatively small probe architectures. Hyperparameters were tuned via grid search over lr ∈ {1e-4, 5e-4, 1e-3, 5e-3} and weight_decay ∈ {1e-6, 1e-5, 1e-4}.</li><br>
+              <li><b>Optimizer: AdamW</b> (lr = \(10^{-3}\), weight_decay = \(10^{-5}\)) — We selected AdamW over SGD for its adaptive learning rates and decoupled weight decay, which provides more stable training on our relatively small probe architectures. Hyperparameters were tuned via grid search over lr \(\in \{10^{-4}, 5 \times 10^{-4}, 10^{-3}, 5 \times 10^{-3}\}\) and weight_decay \(\in \{10^{-6}, 10^{-5}, 10^{-4}\}\).</li><br>
 
               <li><b>Schedule: Cosine annealing</b> over 100 epochs — Cosine decay provides smooth learning rate reduction without requiring manual milestone selection. We found this outperformed step decay and linear warmup schedules in preliminary experiments, likely because the gradual decay allows fine-tuning of the uncertainty direction in later epochs.</li><br>
 
@@ -586,6 +586,12 @@ MathJax = {
 
             This indicates that uncertainty is linearly encoded as a geometric direction in hidden space. Complex architectures overfit by learning spurious correlations in the high-dimensional hidden space that don't generalize, while the capacity-limited linear probe is forced to find a robust direction that corresponds to genuine uncertainty. This finding strongly validates the linear representation hypothesis <a href="#ref_16">[16]</a> and has important implications: uncertainty is explicitly represented as a geometric direction, making it directly accessible via simple probes and potentially steerable via vector arithmetic.<br><br>
 
+            <b>Calibration Analysis:</b><br><br>
+
+            <img src="./images/reliability_diags.png" width=650px/><br><br>
+
+            Reliability diagrams visualize calibration by plotting average accuracy (y-axis) vs. predicted confidence (x-axis) in each bin. Perfect calibration lies on the diagonal: when the model predicts 70% confidence, it should be correct 70% of the time. The blue bars show actual accuracy within each confidence bin. Gaps between the bars and the dashed diagonal line indicate miscalibration. The Linear probe (ECE=0.033) and Hierarchical probe (ECE=0.039) show excellent calibration, with accuracy closely tracking predicted confidence. The Sparse probe (ECE=0.041) also demonstrates good calibration with a slight decrease in calibration at higher confidence ranges. In contrast, the MLP probe (ECE=0.223) shows significant miscalibration, with accuracy deviating substantially from confidence across bins, particularly in lower confidence ranges.<br><br>
+
             <span class="subsection">4.5 Experiment 2: What Information Should We Use?</span><br><br>
 
             <b>Research Question:</b> Given that linear probes work best, what information should we provide as input?<br><br>
@@ -648,12 +654,6 @@ MathJax = {
             <b>Results:</b> Our learned weights confirm that middle layers dominate, consistent with prior work <a href="#ref_5">[5]</a>. Layer 14 (50% depth) receives the highest weight, while the final two layers (21, 75% depth) and (27, 96% depth) receive the lowest weight. <br><br>
 
             <b>Interpretation:</b> Hidden states and logits can diverge (miscalibration). When the model is internally uncertain but expresses high confidence, Fusion probe detects this mismatch. The logit features (entropy, margin, max probability) capture the model's expressed confidence, while hidden states capture its internal uncertainty; when these disagree, the fusion probe can identify cases where the model appears confident but is internally uncertain. This addresses a fundamental limitation of prior probing work: by using only hidden states, probes cannot detect when the model's internal state and expressed confidence disagree.<br><br>
-
-            <b>Calibration Analysis:</b><br><br>
-
-            <img src="./images/reliability_diags.png" width=650px/><br><br>
-
-            Reliability diagrams visualize calibration by plotting average accuracy (y-axis) vs. predicted confidence (x-axis) in each bin. Perfect calibration lies on the diagonal: when the model predicts 70% confidence, it should be correct 70% of the time. The blue bars show actual accuracy within each confidence bin. Gaps between the bars and the dashed diagonal line indicate miscalibration. The Linear probe (ECE=0.033) and Hierarchical probe (ECE=0.039) show excellent calibration, with accuracy closely tracking predicted confidence. The Sparse probe (ECE=0.041) also demonstrates good calibration. In contrast, the MLP probe (ECE=0.223) shows significant miscalibration, with accuracy deviating substantially from confidence across bins, particularly in lower confidence ranges where it is under-confident.<br><br>
 
 		    </div>
 		    <div class="margin-right-block" style="transform: translate(0%, -30%);">
