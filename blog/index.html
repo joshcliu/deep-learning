@@ -280,7 +280,7 @@ MathJax = {
 
 		<span class="subsection">2.3 Research Gaps We Address</span>
           <p>
-          Despite substantial progress, key questions remain about how LLMs represent and express uncertainty. We address these gaps by developing novel probe architectures, evaluating across multiple models, and demonstrating how extracted confidence signals can inform model fine-tuning.
+          Key questions remain about how LLMs represent and express uncertainty. We address these gaps by developing novel probe architectures, evaluating across multiple models, and demonstrating how extracted confidence signals can inform model fine-tuning.
           </p>
           
           <ol>
@@ -289,7 +289,7 @@ MathJax = {
               Most probing work relies on linear classifiers
               <a href="#ref_6">[6]</a><a href="#ref_7">[7]</a>, so it is unclear whether uncertainty is
               linearly extractable or requires more expressive decoders.<br>
-              <i>Our contribution:</i> We design and implement four novel probe architectures (Linear, MLP, Hierarchical, Sparse) to determine the geometric structure of uncertainty, then evaluate how combining information across layers and with logits improves confidence-correction correlation.
+              <b>Our contribution:</b> We design and implement four novel probe architectures (Linear, MLP, Hierarchical, Sparse) to determine the geometric structure of uncertainty, then evaluate how combining information across layers and with logits improves confidence-correction correlation.
             </li>
             <br>
             <li>
@@ -297,7 +297,7 @@ MathJax = {
               Prior work typically probes single layers <a href="#ref_7">[7]</a> or uses naive
               concatenation, leaving open both how to combine uncertainty signals across layers and
               where uncertainty is primarily encoded layer-wise.<br>
-              <i>Our contribution:</i> We develop a novel multi-layer Ensemble Probe with learned weighted
+              <b>Our contribution:</b> We develop a novel multi-layer Ensemble Probe with learned weighted
               aggregation that automatically discovers which layers encode the most uncertainty information.
               Through systematic evaluation across multiple model architectures, we empirically demonstrate that all layers contribute comparable uncertainty signal,
               with middle layers (50-75% depth) providing a slight advantage.
@@ -305,21 +305,21 @@ MathJax = {
             <br>
             <li>
               <b>Internal vs. expressed confidence.</b><br>
-              Existing studies usually focus on either hidden-state signals
+              Existing studies usually focus on examining hidden states
               <a href="#ref_7">[7]</a> or output probabilities <a href="#ref_8">[8]</a> in isolation, so
               the role of their disagreement as a miscalibration signal is underexplored.<br>
-              <i>Our contribution:</i> We create a novel Fusion Probe architecture that combines hidden states
+              <b>Our contribution:</b> We create a novel fusion probe architecture that combines hidden states
               from multiple layers with output logit features (entropy, margin, max probability) using
               cross-layer attention and learned weighted aggregation. This architecture detects miscalibration
-              by identifying cases where internal uncertainty (hidden states) and expressed confidence (logits)
+              by identifying cases where hidden states and logits (expressed confidence)
               diverge, enabling confidence-aware fine-tuning.
             </li>
             <br>
             <li>
               <b>Architectural assumptions.</b><br>
               Different probe architectures encode different assumptions about how uncertainty is
-              structured (e.g., sparsity, hierarchy), yet there is no systematic comparison of these assumptions.<br>
-              <i>Our contribution:</i> We conduct rigorous experiments comparing our four probe architectures (Linear, MLP,
+              structured, yet there is no systematic comparison of these assumptions.<br>
+              <b>Our contribution:</b> We conduct rigorous experiments comparing our four probe architectures (Linear, MLP,
               Hierarchical, Sparse) across multiple models and find that simple linear probes match or outperform complex designs
               despite having 100× fewer parameters, demonstrating that uncertainty is linearly accessible.
             </li>
