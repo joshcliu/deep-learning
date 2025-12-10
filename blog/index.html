@@ -453,7 +453,7 @@ MathJax = {
             <ul>
               <li><b>Loss: Brier score</b> \((\hat{p} - y)^2\) — Unlike binary cross-entropy, which can be minimized by making extreme predictions, Brier score is a <i>proper scoring rule</i> that is uniquely minimized when predicted probabilities equal true probabilities. This directly optimizes for calibration rather than just discrimination.</li><br>
 
-              <li><b>Optimizer: AdamW</b> (lr=1e-3, weight_decay=1e-5) — We selected AdamW over SGD for its adaptive learning rates and decoupled weight decay, which provides more stable training on our relatively small probe architectures. Hyperparameters were tuned via grid search over lr ∈ {1e-4, 5e-4, 1e-3, 5e-3} and weight_decay ∈ {1e-6, 1e-5, 1e-4}.</li><br>
+              <li><b>Optimizer: AdamW</b> (lr = \(10^{-3}\), weight_decay = \(10^{-5}\)) — We selected AdamW over SGD for its adaptive learning rates and decoupled weight decay, which provides more stable training on our relatively small probe architectures. Hyperparameters were tuned via grid search over lr \(\in \{10^{-4}, 5 \times 10^{-4}, 10^{-3}, 5 \times 10^{-3}\}\) and weight_decay \(\in \{10^{-6}, 10^{-5}, 10^{-4}\}\).</li><br>
 
               <li><b>Schedule: Cosine annealing</b> over 100 epochs — Cosine decay provides smooth learning rate reduction without requiring manual milestone selection. We found this outperformed step decay and linear warmup schedules in preliminary experiments, likely because the gradual decay allows fine-tuning of the uncertainty direction in later epochs.</li><br>
 
